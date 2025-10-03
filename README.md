@@ -1,0 +1,1 @@
+Small WASM library to handle large images (100k px) in a browser.
