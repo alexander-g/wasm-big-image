@@ -14,25 +14,20 @@
 
 
 
-struct cb_cookie {
-    /** Size of the file */
-    size_t size;
-    
-    /** Current read position */
-    size_t cursor;
 
-    /** Function to call to read from the file */
-    read_file_callback_ptr_t read_file_callback;
-};
-
-static ssize_t cb_fread(void* vcookie, char* buf, size_t size) {
-    struct cb_cookie* cookie = vcookie;
+ssize_t cb_fread(void* vcookie, char* buf, size_t size) {
+    struct cb_handle* cookie = vcookie;
     size_t toread = min(cookie->size - cookie->cursor, size);
     
     if(toread == 0)
         return 0;
 
-    const int rc = cookie->read_file_callback(buf, cookie->cursor, size);
+    const int rc = cookie->read_file_callback(
+        cookie->read_file_handle, 
+        buf, 
+        cookie->cursor, 
+        size
+    );
     if (rc < 0) {
        return -1; // Error reading
 }
@@ -41,26 +36,26 @@ static ssize_t cb_fread(void* vcookie, char* buf, size_t size) {
     return toread;
 }
 
-static int cb_fseek(void* vcookie, off64_t* off, int whence) {
-    struct cb_cookie* cookie = vcookie;
+int cb_fseek(void* vcookie, long offset, int whence) {
+    struct cb_handle* cookie = vcookie;
     size_t pos = 0;
 
     /* get pos according to whence */
     switch (whence) {
     case SEEK_SET:
     case SEEK_END:
-        if (*off < 0 || *off > cookie->size)
+        if (offset < 0 || offset > cookie->size)
             return -1;
         if (whence == SEEK_SET) 
-            pos = *off;
+            pos = offset;
         else 
-            pos = cookie->size - *off;
+            pos = cookie->size - offset;
         break;
 
     case SEEK_CUR:
-        if (*off + cookie->cursor < 0)
+        if (offset + cookie->cursor < 0)
             return -1;
-        pos = *off;
+        pos = offset;
         if (pos > cookie->size)
             return -1;
         break;
@@ -68,28 +63,40 @@ static int cb_fseek(void* vcookie, off64_t* off, int whence) {
 
     /* set the position and return */
     cookie->cursor = pos;
-    return 0;
+    return cookie->cursor;
 }
 
-static int cb_fclose(void* cookie) {
+// fopencookie expects an off64_t* rather than long
+int _cb_fseek(void* vcookie, off64_t* off, int whence){
+    const long offset = *off;
+    return cb_fseek(vcookie, offset, whence);
+}
+
+
+int cb_fclose(void* cookie) {
     free(cookie);
 }
 
-FILE* cb_fopen(size_t size, read_file_callback_ptr_t read_file_callback) {
-    struct cb_cookie* cookie = malloc(sizeof(struct cb_cookie));
+FILE* cb_fopen(
+    size_t                   size, 
+    read_file_callback_ptr_t read_file_callback, 
+    const void*              read_file_handle
+) {
+    struct cb_handle* cookie = malloc(sizeof(struct cb_handle));
     if (!cookie) 
         return (NULL);
     
-    *cookie = (struct cb_cookie){
+    *cookie = (struct cb_handle){
         .cursor = 0,
-        .size = size,
+        .size   = size,
         .read_file_callback = read_file_callback,
+        .read_file_handle   = read_file_handle,
     };
 
     FILE* file = fopencookie(
         cookie, 
         "r",
-        (cookie_io_functions_t){cb_fread, NULL, cb_fseek, cb_fclose}
+        (cookie_io_functions_t){cb_fread, NULL, _cb_fseek, cb_fclose}
     );
     if (!file) 
         cb_fclose(cookie);

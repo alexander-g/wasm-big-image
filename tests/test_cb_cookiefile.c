@@ -10,7 +10,7 @@ static const char mock_data[] = "Hello, fopencookie!";
 static const size_t mock_data_size = sizeof(mock_data) - 1; // exclude null terminator
 
 // Mock read callback
-int mock_read_callback(void* dstbuf, size_t start, size_t size) {
+int mock_read_callback_str(const void* _, void* dstbuf, size_t start, size_t size) {
     if (start >= mock_data_size) 
         return 0;
     size_t available = mock_data_size - start;
@@ -20,7 +20,7 @@ int mock_read_callback(void* dstbuf, size_t start, size_t size) {
 }
 
 int test_cb_cookiefile(void) {
-    FILE* file = cb_fopen(mock_data_size, mock_read_callback);
+    FILE* file = cb_fopen(mock_data_size, mock_read_callback_str, NULL);
     assert(file != NULL);
 
     char buf[32] = {0};
