@@ -95,7 +95,8 @@ export class BigImage {
 
 export async function initialize(): Promise<BigImage> {
     const wasm:BigImageWASM = 
-        await (await import('../build-wasm/big-image.js')).default();
+        // deno-lint-ignore no-explicit-any
+        await (await import('../build-wasm/big-image.js')).default() as any;
     
     return new BigImage(wasm);
 }

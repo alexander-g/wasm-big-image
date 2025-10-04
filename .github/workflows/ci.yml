@@ -30,6 +30,8 @@ jobs:
         run: |
           build/tests
 
+
+
   build-wasm:
     runs-on: ubuntu-latest
     steps:
@@ -37,17 +39,26 @@ jobs:
         with:
           submodules: 'recursive'
       
-      - name: Install
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.69
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: Deno
         run: |
-          DEBIAN_FRONTEND=noninteractive \
-            sudo apt-get install -y build-essential cmake emscripten
+          ./deno.sh task cache
       
       - name: Build
         run: |
+          emcc -v
           mkdir build-wasm
           cd build-wasm
-          emcmake cmake ..
+          emcmake cmake ..                      \
+            -DCMAKE_BUILD_TYPE=Release          \
+            -DCMAKE_VERBOSE_MAKEFILE=ON
           emmake make
+          pwd
+          ls -halt
 
       - name: Test
         run: |
