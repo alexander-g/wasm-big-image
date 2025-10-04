@@ -40,7 +40,7 @@ jobs:
       - name: Install
         run: |
           DEBIAN_FRONTEND=noninteractive \
-            apt-get install -y build-essential cmake emscripten
+            sudo apt-get install -y build-essential cmake emscripten
       
       - name: Build
         run: |
