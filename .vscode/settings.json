@@ -2,5 +2,10 @@
     "search.exclude": {
         "build*/*": true,
         "libtiff/*": true
-    }
+    },
+    "deno.enable": true,
+    "deno.path": "./deno.sh",
+    "typescript.inlayHints.parameterTypes.enabled": true,
+    "typescript.inlayHints.functionLikeReturnTypes.enabled": false,
+    "typescript.inlayHints.variableTypes.enabled": true
 }

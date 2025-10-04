@@ -30,5 +30,27 @@ jobs:
         run: |
           build/tests
 
+  build-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+      
+      - name: Install
+        run: |
+          DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y build-essential cmake emscripten
+      
+      - name: Build
+        run: |
+          mkdir build-wasm
+          cd build-wasm
+          emcmake cmake ..
+          emmake make
+
+      - name: Test
+        run: |
+          ./run_tests_deno.sh
 
 
