@@ -5,6 +5,11 @@
 #include "./cb_cookiefile.h"
 
 
+
+typedef void (*finished_callback_ptr_t)(int rc);
+
+
+
 TIFF* tiff_client_open(
     size_t                   size, 
     read_file_callback_ptr_t read_file_callback,
@@ -13,16 +18,13 @@ TIFF* tiff_client_open(
 
 int tiff_get_size(
     size_t      filesize,
-    const void* read_file_callback_p,
+    const read_file_callback_ptr_t read_file_callback_p,
     const void* read_file_handle,
-    size_t*     width,
+    size_t*     width,  // TODO: make this explicit uint64_t
     size_t*     height,
     TIFF**      tif_p
 ) {
-    read_file_callback_ptr_t read_file_callback = 
-        (read_file_callback_ptr_t)(read_file_callback_p);
-
-    TIFF* tif = tiff_client_open(filesize, read_file_callback, read_file_handle);
+    TIFF* tif = tiff_client_open(filesize, read_file_callback_p, read_file_handle);
     if(tif == NULL)
         return -1;
     
@@ -68,7 +70,6 @@ int tiff_read(
         return -5; 
     }
     if(!TIFFReadRGBAImageOriented(tif, w, h, buffer, ORIENTATION_TOPLEFT, 0)) {
-        _TIFFfree(buffer); 
         TIFFClose(tif); 
         return -6;
     }
