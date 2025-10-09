@@ -10,7 +10,7 @@ static const char mock_data[] = "Hello, fopencookie!";
 static const size_t mock_data_size = sizeof(mock_data) - 1; // exclude null terminator
 
 // Mock read callback
-int mock_read_callback_str(const void* _, void* dstbuf, size_t start, size_t size) {
+int mock_read_callback_str(const void* _, void* dstbuf, uint64_t start, uint64_t size) {
     if (start >= mock_data_size) 
         return 0;
     size_t available = mock_data_size - start;
