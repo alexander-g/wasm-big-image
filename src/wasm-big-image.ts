@@ -27,6 +27,18 @@ type BigImageWASM = {
         buffer:               pointer,
         buffersize:           number,
     ) => number,
+    
+    _tiff_read_patch: (
+        filesize:             number,
+        read_file_callback_p: fn_pointer,
+        read_file_handle:     number,
+        offset_x:             number,
+        offset_y:             number,
+        patch_width:          number,
+        patch_height:         number,
+        buffer:               pointer,
+        buffersize:           number,
+    ) => number,
 
     _malloc: (nbytes:number) => pointer,
     _free:   (ptr:pointer) => void,
@@ -73,9 +85,10 @@ export class BigImage {
         const handle:number = this.#handle_counter++;
         this.#read_file_callback_table[handle] = file;
 
-        const ptr:number = this.wasm._malloc(16);
-        const w_ptr:number = ptr + 0;
-        const h_ptr:number = ptr + 8;
+        const w_ptr:number = this.wasm._malloc(8);
+        const h_ptr:number = this.wasm._malloc(8);
+        this.wasm.HEAP64[w_ptr >> 3] = 0n;
+        this.wasm.HEAP64[h_ptr >> 3] = 0n;
         const rc:number = await this.wasm._tiff_get_size(
             file.size, 
             this.#read_file_callback_ptr, 
@@ -93,7 +106,8 @@ export class BigImage {
         const w:number = Number(this.wasm.HEAP64[w_ptr >> 3])
         const h:number = Number(this.wasm.HEAP64[h_ptr >> 3])
 
-        this.wasm._free(ptr);
+        this.wasm._free(w_ptr);
+        this.wasm._free(h_ptr);
         delete this.#read_file_callback_table[handle];
         
         // TODO: rc is invalid!
@@ -135,6 +149,46 @@ export class BigImage {
         if(rc != 0)
             return new Error('Reading tiff file failed')
         return {data:rgba, ...imsize};
+    }
+
+    async tiff_read_patch(
+        file:         File, 
+        offset_x:     number, 
+        offset_y:     number,
+        patch_width:  number,
+        patch_height: number,
+    ): Promise<Image|Error> {
+        const handle:number = this.#handle_counter++;
+        this.#read_file_callback_table[handle] = file;
+
+        const nbytes:number = patch_width * patch_height * 4;
+        const buffer:pointer = this.wasm._malloc(nbytes)
+        const rc:number = this.wasm._tiff_read_patch(
+            file.size, 
+            this.#read_file_callback_ptr, 
+            handle, 
+            offset_x,
+            offset_y,
+            patch_width,
+            patch_height,
+            buffer, 
+            nbytes,
+        )
+        // NOTE: the wasm function above returns before the execution is 
+        // finished because of async issues, so currently polling until done
+        while(this.wasm.Asyncify.currData != null)
+            await wait(1);
+
+        // copy
+        const rgba:Uint8Array = this.wasm.HEAPU8.slice(buffer, buffer+nbytes)
+
+        this.wasm._free(buffer);
+        delete this.#read_file_callback_table[handle];
+
+        // TODO: rc is invalid!
+        if(rc != 0)
+            return new Error('Reading tiff file failed')
+        return {data:rgba, width:patch_width, height:patch_height};
     }
 
 

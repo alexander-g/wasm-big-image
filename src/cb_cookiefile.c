@@ -8,9 +8,7 @@
 #include <stdlib.h>
 
 #include "./cb_cookiefile.h"
-
-
-#define min(A, B) ((A) < (B) ? (A) : (B))
+#include "./util.h"
 
 
 

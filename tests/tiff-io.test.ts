@@ -16,6 +16,9 @@ Deno.test("get_tiff_size", async () => {
     const size: Error|ImageSize = await module.get_tiff_size(tiffile);
     asserts.assertEquals(size, {width:242, height:168});
 
+    // actual bug: calling twice in a row gives invalid values
+    const size2: Error|ImageSize = await module.get_tiff_size(tiffile);
+    asserts.assertEquals(size2, {width:242, height:168});
 })
 
 
@@ -31,4 +34,19 @@ Deno.test("tiff_read", async () => {
     asserts.assertEquals(image.data.length, 242*168*4);
 })
 
+
+Deno.test("tiff_read_patch", async () => {
+    const data_u8:Uint8Array = Deno.readFileSync(TIFF_FILE)
+    const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
+
+    const module:BigImage|Error = await initialize()
+    const image: Error|Image = await module.tiff_read_patch(tiffile, 50,140,25,25);
+    asserts.assertNotInstanceOf(image, Error)
+
+    asserts.assertEquals(image.data.length, 25*25*4);
+
+    // actual bug: memory issues
+    const image2: Error|Image = await module.tiff_read_patch(tiffile, 50,50,50,50);
+    asserts.assertNotInstanceOf(image2, Error)
+})
 

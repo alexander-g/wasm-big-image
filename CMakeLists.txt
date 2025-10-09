@@ -39,7 +39,7 @@ if(RUNNING_EMSCRIPTEN)
         -sSINGLE_FILE=1 
         -sEXPORT_NAME="bigimage" 
         -sEXPORTED_RUNTIME_METHODS=addFunction,Asyncify
-        -sEXPORTED_FUNCTIONS=_tiff_get_size,_tiff_read,_malloc,_free
+        -sEXPORTED_FUNCTIONS=_tiff_get_size,_tiff_read,_tiff_read_patch,_malloc,_free
         -sENVIRONMENT=web 
         -sALLOW_TABLE_GROWTH 
         -sWASM_BIGINT 

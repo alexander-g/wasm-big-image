@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <assert.h>
 
 #include "../src/tiff-io.h"
@@ -63,4 +64,88 @@ int test_tiff_read() {
 }
 
 
+int test_tiff_read_patch() {
+    int rc;
+    const size_t nbytes = 1024*1024*4;
+    void* buffer = malloc(nbytes);
 
+    FILE* fp;
+    size_t fsize;
+    rc = open_asset_tiff(&fp, &fsize);
+    assert(rc == 0);
+    
+    rc = tiff_read_patch(
+        fsize, 
+        mock_read_callback2, 
+        (void*)fp, 
+        /*offset_x     =*/ 50,
+        /*offset_y     =*/ 140,
+        /*patch_width  =*/ 25,
+        /*patch_height =*/ 25,
+        buffer, 
+        nbytes
+    );
+    assert(rc == 0);
+
+    // actual bug
+    rc = tiff_read_patch(
+        fsize, 
+        mock_read_callback2, 
+        (void*)fp, 
+        /*offset_x     =*/ 50,
+        /*offset_y     =*/ 50,
+        /*patch_width  =*/ 50,
+        /*patch_height =*/ 50,
+        buffer, 
+        nbytes
+    );
+    assert(rc == 0);
+    printf("rgb= %i - %i - %i\n", ((uint8_t*) buffer)[0], ((uint8_t*) buffer)[1], ((uint8_t*) buffer)[2]);
+
+
+    rc = tiff_read_patch(
+        fsize, 
+        mock_read_callback2, 
+        (void*)fp, 
+        /*offset_x     =*/ 50,
+        /*offset_y     =*/ 0,
+        /*patch_width  =*/ 50,
+        /*patch_height =*/ 100,
+        buffer, 
+        nbytes
+    );
+    assert(rc == 0);
+    printf("rgb= %i - %i - %i\n", ((uint8_t*) buffer)[0], ((uint8_t*) buffer)[1], ((uint8_t*) buffer)[2]);
+
+    rc = tiff_read_patch(
+        fsize, 
+        mock_read_callback2, 
+        (void*)fp, 
+        /*offset_x     =*/ 100,
+        /*offset_y     =*/ 0,
+        /*patch_width  =*/ 100,
+        /*patch_height =*/ 150,
+        buffer, 
+        nbytes
+    );
+    assert(rc == 0);
+    printf("rgb= %i - %i - %i - %i\n", ((uint8_t*) buffer)[0], ((uint8_t*) buffer)[1], ((uint8_t*) buffer)[2], ((uint8_t*) buffer)[3]);
+    printf("rgb= %i - %i - %i - %i\n", ((uint8_t*) buffer)[400+0], ((uint8_t*) buffer)[400+1], ((uint8_t*) buffer)[400+2], ((uint8_t*) buffer)[400+3]);
+
+
+    // out of bounds
+    rc = tiff_read_patch(
+        fsize, 
+        mock_read_callback2, 
+        (void*)fp, 
+        /*offset_x     =*/ 150,
+        /*offset_y     =*/ 100,
+        /*patch_width  =*/ 100,
+        /*patch_height =*/ 100,
+        buffer, 
+        nbytes
+    );
+    assert(rc == 0);
+
+    return 0;
+}
