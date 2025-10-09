@@ -20,6 +20,7 @@
 int main() {
     RUN_TEST(test_cb_cookiefile);
     RUN_TEST(test_tiff_read);
+    RUN_TEST(test_tiff_read_patch);
 
     printf("All tests passed.\n");
     return 0;

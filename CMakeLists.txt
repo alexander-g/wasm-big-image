@@ -38,11 +38,12 @@ if(RUNNING_EMSCRIPTEN)
         -sMODULARIZE=1 
         -sSINGLE_FILE=1 
         -sEXPORT_NAME="bigimage" 
-        -sEXPORTED_RUNTIME_METHODS=addFunction 
-        -sEXPORTED_FUNCTIONS=_tiff_get_size,_malloc,_free 
-        -sENVIRONMENT=shell 
+        -sEXPORTED_RUNTIME_METHODS=addFunction,Asyncify
+        -sEXPORTED_FUNCTIONS=_tiff_get_size,_tiff_read,_tiff_read_patch,_malloc,_free
+        -sENVIRONMENT=web 
         -sALLOW_TABLE_GROWTH 
         -sWASM_BIGINT 
+        -sASYNCIFY 
         -O3
         -o big-image.js
     #COMMAND 
