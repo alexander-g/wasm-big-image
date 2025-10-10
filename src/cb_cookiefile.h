@@ -1,5 +1,7 @@
 /** Emulate a readonly file stream by requesting data from a callback */
 
+#include <stdint.h>
+
 
 typedef int (*read_file_callback_ptr_t)(
     /** Callback-specific data handle */
@@ -7,9 +9,9 @@ typedef int (*read_file_callback_ptr_t)(
     /** Destination data buffer */
     void* dstbuf, 
     /** Starting read position */
-    size_t start, 
+    uint64_t start, 
     /** Number of bytes to read */
-    size_t size
+    uint64_t size
 );
 
 /** Emulate a file stream that can be used with fwrite, fread etc. */
@@ -37,7 +39,7 @@ struct cb_handle {
 
 
 ssize_t cb_fread(void* vhandle, char* buf, size_t size);
-int     cb_fseek(void* vhandle, long offset, int whence);
+int64_t cb_fseek(void* vhandle, uint64_t offset, int whence);
 int     cb_fclose(void* handle);
 
 

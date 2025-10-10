@@ -6,11 +6,11 @@
 #include "../src/tiff-io.h"
 
 
-int mock_read_callback_faulty(void* handle, void* dstbuf, size_t start, size_t size) {
+int mock_read_callback_faulty(void* handle, void* dstbuf, uint64_t start, uint64_t size) {
     return -1;
 }
 
-int mock_read_callback2(void* handle, void* dstbuf, size_t start, size_t size) {
+int mock_read_callback2(void* handle, void* dstbuf, uint64_t start, uint64_t size) {
     //printf("\nDBG>>> %x %i %i\n", handle, start, size); fflush(stdout);
 
     FILE* fp = (FILE*) handle;
@@ -78,12 +78,15 @@ int test_tiff_read_patch() {
         fsize, 
         mock_read_callback2, 
         (void*)fp, 
-        /*offset_x     =*/ 50,
-        /*offset_y     =*/ 140,
-        /*patch_width  =*/ 25,
-        /*patch_height =*/ 25,
+        /*src_x      =*/ 50,
+        /*src_y      =*/ 140,
+        /*src_width  =*/ 25,
+        /*src_height =*/ 25,
+        /*dst_width  =*/ 25,
+        /*dst_height =*/ 25,
         buffer, 
-        nbytes
+        nbytes,
+        NULL
     );
     assert(rc == 0);
 
@@ -92,12 +95,15 @@ int test_tiff_read_patch() {
         fsize, 
         mock_read_callback2, 
         (void*)fp, 
-        /*offset_x     =*/ 50,
-        /*offset_y     =*/ 50,
-        /*patch_width  =*/ 50,
-        /*patch_height =*/ 50,
+        /*src_x      =*/ 50,
+        /*src_y      =*/ 50,
+        /*src_width  =*/ 50,
+        /*src_height =*/ 50,
+        /*dst_width  =*/ 50,
+        /*dst_height =*/ 50,
         buffer, 
-        nbytes
+        nbytes,
+        NULL
     );
     assert(rc == 0);
     printf("rgb= %i - %i - %i\n", ((uint8_t*) buffer)[0], ((uint8_t*) buffer)[1], ((uint8_t*) buffer)[2]);
@@ -107,12 +113,15 @@ int test_tiff_read_patch() {
         fsize, 
         mock_read_callback2, 
         (void*)fp, 
-        /*offset_x     =*/ 50,
-        /*offset_y     =*/ 0,
-        /*patch_width  =*/ 50,
-        /*patch_height =*/ 100,
+        /*src_x      =*/ 50,
+        /*src_y      =*/ 0,
+        /*src_width  =*/ 50,
+        /*src_height =*/ 100,
+        /*dst_width  =*/ 50,
+        /*dst_height =*/ 100,
         buffer, 
-        nbytes
+        nbytes,
+        NULL
     );
     assert(rc == 0);
     printf("rgb= %i - %i - %i\n", ((uint8_t*) buffer)[0], ((uint8_t*) buffer)[1], ((uint8_t*) buffer)[2]);
@@ -121,12 +130,15 @@ int test_tiff_read_patch() {
         fsize, 
         mock_read_callback2, 
         (void*)fp, 
-        /*offset_x     =*/ 100,
-        /*offset_y     =*/ 0,
-        /*patch_width  =*/ 100,
-        /*patch_height =*/ 150,
+        /*src_x      =*/ 100,
+        /*src_y      =*/ 0,
+        /*src_width  =*/ 100,
+        /*src_height =*/ 150,
+        /*dst_width  =*/ 100,
+        /*dst_height =*/ 150,
         buffer, 
-        nbytes
+        nbytes,
+        NULL
     );
     assert(rc == 0);
     printf("rgb= %i - %i - %i - %i\n", ((uint8_t*) buffer)[0], ((uint8_t*) buffer)[1], ((uint8_t*) buffer)[2], ((uint8_t*) buffer)[3]);
@@ -138,12 +150,15 @@ int test_tiff_read_patch() {
         fsize, 
         mock_read_callback2, 
         (void*)fp, 
-        /*offset_x     =*/ 150,
-        /*offset_y     =*/ 100,
-        /*patch_width  =*/ 100,
-        /*patch_height =*/ 100,
+        /*src_x      =*/ 150,
+        /*src_y      =*/ 100,
+        /*src_width  =*/ 100,
+        /*src_height =*/ 100,
+        /*dst_width  =*/ 100,
+        /*dst_height =*/ 100,
         buffer, 
-        nbytes
+        nbytes,
+        NULL
     );
     assert(rc == 0);
 

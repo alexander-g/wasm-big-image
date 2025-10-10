@@ -34,7 +34,7 @@ ssize_t cb_fread(void* vcookie, char* buf, size_t size) {
     return toread;
 }
 
-int cb_fseek(void* vcookie, long offset, int whence) {
+int64_t cb_fseek(void* vcookie, uint64_t offset, int whence) {
     struct cb_handle* cookie = vcookie;
     size_t pos = 0;
 
@@ -61,10 +61,10 @@ int cb_fseek(void* vcookie, long offset, int whence) {
 
     /* set the position and return */
     cookie->cursor = pos;
-    return cookie->cursor;
+    return (int64_t)cookie->cursor;
 }
 
-// fopencookie expects an off64_t* rather than long
+// fopencookie expects a pointer rather than value
 int _cb_fseek(void* vcookie, off64_t* off, int whence){
     const long offset = *off;
     return cb_fseek(vcookie, offset, whence);

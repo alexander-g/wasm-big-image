@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <tiffio.h>
@@ -28,19 +29,19 @@ int tiff_get_size(
 ) {
     TIFF* tif = tiff_client_open(filesize, read_file_callback_p, read_file_handle);
     if(tif == NULL)
-        return -1;
+        return TIFF_OPEN_FAILED;
     
     int rc;
     int w,h;
     rc = TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
     if(rc != 1 || w <= 0){
         TIFFClose(tif);
-        return -2;
+        return TIFF_GET_IMAGE_WIDTH_FAILED;
     }
     rc = TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
     if(rc != 1 || h <= 0){
         TIFFClose(tif);
-        return -3;
+        return TIFF_GET_IMAGE_HEIGHT_FAILED;
     }
     *width  = (size_t) w;
     *height = (size_t) h;
@@ -69,11 +70,11 @@ int tiff_read(
     const size_t required_size = npixels * sizeof(uint32_t);
     if(buffersize < required_size) { 
         TIFFClose(tif); 
-        return -5; 
+        return BUFFER_TOO_SMALL; 
     }
     if(!TIFFReadRGBAImageOriented(tif, w, h, buffer, ORIENTATION_TOPLEFT, 1)) {
         TIFFClose(tif); 
-        return -6;
+        return TIFF_READ_FULL_FAILED;
     }
     
     return 0;
@@ -85,46 +86,81 @@ static void copy_scanline(
     const uint8_t* stripbuffer, 
     int strip_y,       // row within the stripbuffer
     int output_y,      // row within the outputbuffer
-    int offset_x,      // column within the stripbuffer
+    int src_x,         // column within the stripbuffer
     int image_width,   // width of the strip / image
-    int patch_width,   // width of the output buffer
+    int dst_width,     // width of the output buffer
     int read_width,    // width to read, might be smaller than patch width if oob
     size_t pixel_size,
     uint8_t* out
 ) {
-    const int src = (strip_y * image_width + offset_x) * pixel_size;
-    const int dst = output_y * patch_width * pixel_size;
+    const int src = (strip_y * image_width + src_x) * pixel_size;
+    const int dst = output_y * dst_width * pixel_size;
     memcpy(out + dst, stripbuffer + src, (size_t)read_width * pixel_size);
 }
+
+static void copy_and_resize_scanline(
+    const uint8_t* stripbuffer,
+    int      strip_y,      // row within the stripbuffer
+    int      output_y,     // row within the outputbuffer
+    int      src_x,        // column within the stripbuffer
+    int      image_width,  // width of the strip / image
+    int      dst_width,    // width of the output buffer
+    int      fill_width,   // # of pixels to fill, can be smaller than dst width
+    double   step_x,       // step size
+    size_t   pixel_size,
+    uint8_t* out
+) {
+    const int src_base = strip_y * image_width * pixel_size;
+    const int dst_base = output_y * dst_width * pixel_size;
+
+    for(int output_x = 0; output_x < fill_width; output_x++){
+        const int strip_x = src_x + (int)round(output_x * step_x);
+
+        const int src = src_base + (int)round(strip_x) * pixel_size;
+        const int dst = dst_base + output_x * pixel_size;
+
+        out[dst+0] = stripbuffer[src+0];
+        out[dst+1] = stripbuffer[src+1];
+        out[dst+2] = stripbuffer[src+2];
+        out[dst+3] = stripbuffer[src+3];
+
+        
+    }
+}
+
+
 
 static int tiff_read_patch_strips(
     TIFF*   tif,
     int     image_width,
     int     image_height,
-    int     offset_x,
-    int     offset_y,
-    int     patch_width,
-    int     patch_height,
+    int     src_x,
+    int     src_y,
+    int     src_width,
+    int     src_height,
+    int     dst_width,
+    int     dst_height,
     void*   buffer,
     size_t  buffersize
 ) {
     int rc;
 
-    int read_height = patch_height;
-    int read_width  = patch_width;
+    // last pixel to read
+    int read_height = src_height;
+    int read_width  = src_width;
     // clamp to image bounds
-    if (offset_x + patch_width > image_width)
-        read_width = image_width - offset_x;
-    if (offset_y + patch_height > image_height)
-        read_height = image_height - offset_y;
+    if (src_x + src_width > image_width)
+        read_width = image_width - src_x;
+    if (src_y + src_height > image_height)
+        read_height = image_height - src_y;
     if (read_width == 0 || read_height == 0)
-        return -3;
+        return INVALID_SIZES2;
 
     // 32bit rgba
     const size_t pixel_size = sizeof(uint32_t);
-    const size_t nbytes_required = patch_width * patch_height * pixel_size;
+    const size_t nbytes_required = dst_width * dst_height * pixel_size;
     if (buffersize < nbytes_required) 
-        return -4;
+        return BUFFER_TOO_SMALL;
 
     uint8_t *out = (uint8_t*)buffer;
 
@@ -132,16 +168,22 @@ static int tiff_read_patch_strips(
     uint32_t rows_per_strip = 0;
     rc = TIFFGetField(tif, TIFFTAG_ROWSPERSTRIP, &rows_per_strip);
     if(rc != 1 || rows_per_strip == 0)
-        return -5;
+        return TIFF_GET_ROWS_PER_STRIP_FAILED;
 
     memset(out, 0, nbytes_required);
     const uint32_t nbytes_strip  = image_width * rows_per_strip * pixel_size;
     uint8_t* stripbuffer = malloc(nbytes_strip);
     if(stripbuffer == NULL)
-        return -6;
+        return MALLOC_FAILED;
+
+    const double step_y = (double)src_height / dst_height;
+    const double step_x = (double)src_width / dst_width;
+    // maximum pixel within the output buffer
+    const int fill_height = min( round(read_height / step_y), dst_height);
+    const int fill_width  = min( round(read_width / step_x), dst_width );
     
-    for(int output_y = 0; output_y < read_height; ){
-        const int image_y = offset_y + output_y;
+    for(int output_y = 0; output_y < fill_height; ){
+        const int image_y = src_y + round(output_y * step_y);
         const int strip = image_y / rows_per_strip;
         const int first_scanline_of_strip = strip * rows_per_strip;
         
@@ -155,30 +197,41 @@ static int tiff_read_patch_strips(
         );
         if(rc != 1) {
             free(stripbuffer);
-            return -7;
+            return TIFF_READ_STRIP_FAILED;
         }
 
         // libtiff antics, rows start at the bottom, but not in the last strip
-        int strip_y = min(rows_per_strip - 1, image_height - 1 - strip * rows_per_strip);
+        double strip_y = 
+            min(rows_per_strip - 1, image_height - 1 - strip * rows_per_strip);
         // discard offset rows
         strip_y -= image_y % rows_per_strip;
+        // should not do anything but just in case
+        strip_y  = max(0, strip_y);
 
-        for(; output_y < read_height && strip_y >= 0; output_y++, strip_y--){
-            copy_scanline(
-                stripbuffer, 
-                strip_y,
+        for(; output_y < fill_height; output_y++){
+            // stop if we need to read a new strip
+            const int image_y2 = src_y + round(output_y * step_y);
+            const int strip2 = image_y2 / rows_per_strip;
+            if(strip != strip2)
+                break;
+
+            copy_and_resize_scanline(
+                stripbuffer,
+                (int) round(strip_y),
                 output_y, 
-                offset_x, 
+                src_x, 
                 image_width, 
-                patch_width,
-                read_width,
+                dst_width,
+                fill_width,
+                step_x,
                 pixel_size,
                 out
             );
+            strip_y = max(strip_y - step_y, 0);
         }
     }
     free(stripbuffer);
-    return 0;
+    return OK;
 }
 
 
@@ -187,21 +240,29 @@ int tiff_read_patch(
     size_t      filesize,
     const void* read_file_callback_p,
     const void* read_file_handle,
-    int         offset_x,
-    int         offset_y,
-    int         patch_width,
-    int         patch_height,
-    void*       buffer,
-    size_t      buffersize
+    int         src_x,
+    int         src_y,
+    int         src_width,
+    int         src_height,
+    int         dst_width,
+    int         dst_height,
+    void*       dst_buffer,
+    size_t      dst_buffersize,
+    int*        returncode
 ){  
-    if(offset_x < 0
-    || offset_y < 0
-    || patch_height < 1
-    || patch_width  < 1
-    || buffersize < (patch_height * patch_width * 4) )
-        return -1;
+    if(src_x < 0
+    || src_y < 0)
+        return NEGATIVE_OFFSETS;
     
+    if(src_height < 1
+    || src_width  < 1
+    || dst_height < 1
+    || dst_width  < 1)
+        return INVALID_SIZES;
 
+    if(dst_buffersize < (dst_height * dst_width * 4) )
+        return BUFFER_TOO_SMALL;
+    
     int rc;
     size_t image_width, image_height;
     TIFF* tif;
@@ -213,35 +274,41 @@ int tiff_read_patch(
         &image_height, 
         &tif
     );
-    if(rc != 0)
+    if(rc != 0) {
+        if(returncode != NULL) *returncode = rc;
         return rc;
-
-    if(offset_x >= image_width 
-    || offset_y >= image_height){
-        TIFFClose(tif);
-        return -2;
     }
 
-
+    if(src_x >= image_width 
+    || src_y >= image_height){
+        TIFFClose(tif);
+        rc = OFFSETS_OUT_OF_BOUNDS;
+        if(returncode != NULL) *returncode = rc;
+        return rc;
+    }
 
     if(TIFFIsTiled(tif)) {
         // TODO
-        return -999;
+        printf("ERROR: reading tiled tiffs not implemented.\n");
+        rc = NOT_IMPLEMENTED;
     } else {
         rc = tiff_read_patch_strips(
             tif, 
             image_width, 
             image_height,
-            offset_x, 
-            offset_y, 
-            patch_width,
-            patch_height,
-            buffer,
-            buffersize
+            src_x, 
+            src_y,
+            src_width,
+            src_height,
+            dst_width,
+            dst_height,
+            dst_buffer,
+            dst_buffersize
         );
     }
     TIFFClose(tif); 
-    return 0;
+    if(returncode != NULL) *returncode = rc;
+    return rc;
 }
 
 
@@ -259,7 +326,8 @@ tmsize_t _tiff_client_read(thandle_t handle, void* buffer, tmsize_t size){
 
 // just to silence warnings
 toff_t _tiff_client_seek(thandle_t handle, toff_t offset, int whence) {
-    return cb_fseek(handle, offset, whence);
+    int64_t rc = cb_fseek(handle, offset, whence);
+    return rc;
 }
 
 // just to silence warnings
@@ -279,9 +347,10 @@ TIFF* tiff_client_open(
     read_file_callback_ptr_t read_file_callback,
     const void*              read_file_handle
 ){
+    void *pv;
     struct cb_handle* handle = malloc(sizeof(struct cb_handle));
     if (!handle) 
-        return (NULL);
+        return NULL;
     *handle = (struct cb_handle){
         .cursor = 0,
         .size   = size,
@@ -302,7 +371,7 @@ TIFF* tiff_client_open(
         /* unmapproc  = */ NULL
     );
     if(tif == NULL)
-        cb_fclose(handle);
+        cb_fclose(handle);  // = free()
     return tif;
 }
 
