@@ -1,5 +1,26 @@
 /** TIFF image read functions */
 
+
+enum Error { 
+    OK = 0,
+
+    TIFF_OPEN_FAILED             = -1, 
+    TIFF_GET_IMAGE_WIDTH_FAILED  = -2, 
+    TIFF_GET_IMAGE_HEIGHT_FAILED = -3, 
+    BUFFER_TOO_SMALL      = -4,
+    INVALID_SIZES         = -5, 
+    TIFF_READ_FULL_FAILED = -6, 
+    NEGATIVE_OFFSETS      = -7, 
+    OFFSETS_OUT_OF_BOUNDS = -8,
+    INVALID_SIZES2        = -9, 
+    TIFF_GET_ROWS_PER_STRIP_FAILED = -10, 
+    MALLOC_FAILED          = -11,
+    TIFF_READ_STRIP_FAILED = -12, 
+
+    NOT_IMPLEMENTED       = -999,
+};
+
+
 /** Read and decode a full tiff image (RGBA) */
 int tiff_read(
     size_t      filesize,
