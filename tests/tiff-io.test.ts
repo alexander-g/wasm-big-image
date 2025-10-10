@@ -40,13 +40,25 @@ Deno.test("tiff_read_patch", async () => {
     const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
 
     const module:BigImage|Error = await initialize()
-    const image: Error|Image = await module.tiff_read_patch(tiffile, 50,140,25,25);
+    const image: Error|Image = 
+        await module.tiff_read_patch(tiffile, 50,140,25,25, 25, 25);
     asserts.assertNotInstanceOf(image, Error)
-
     asserts.assertEquals(image.data.length, 25*25*4);
 
     // actual bug: memory issues
-    const image2: Error|Image = await module.tiff_read_patch(tiffile, 50,50,50,50);
+    const image2: Error|Image = 
+        await module.tiff_read_patch(tiffile, 50,50,50,50, 50,50);
     asserts.assertNotInstanceOf(image2, Error)
+
+
+    const image3: Error|Image = 
+        await module.tiff_read_patch(tiffile, 50,140,25,25, 5, 5);
+    asserts.assertNotInstanceOf(image3, Error)
+    asserts.assertEquals(image3.data.length, 5*5*4);
+
+    const image4: Error|Image = 
+        await module.tiff_read_patch(tiffile, 50,140,25,25, 99, 99);
+    asserts.assertNotInstanceOf(image4, Error)
+    asserts.assertEquals(image4.data.length, 99*99*4);
 })
 
