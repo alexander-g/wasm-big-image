@@ -27,7 +27,15 @@ def generate_tiled(outputdir:str):
             photometric='RGB'
         )
 
+def generate_jpeg(outputdir:str):
+    W,H = 400,500
+    outputfile = os.path.join(outputdir, 'jpeg0.tiff')
+    with TiffWriter(outputfile, bigtiff=False) as tif:
+        data = np.zeros((H, W, 3), dtype='uint8')
+        data[100:, 100:][:25,:25] = (255,0,0)
+        data[-5:,-5:] = (127,255,127)
 
+        tif.write(data, photometric='rgb', compression='jpeg')
 
 
 
@@ -36,5 +44,6 @@ if __name__ == '__main__':
     path_to_assets = \
         os.path.join(os.path.dirname(path_to_this_script), '../assets')
     generate_tiled( path_to_assets )
+    generate_jpeg( path_to_assets )
 
     print('done')

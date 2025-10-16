@@ -1,3 +1,6 @@
 [submodule "libtiff"]
 	path = libtiff
 	url = https://gitlab.com/libtiff/libtiff
+[submodule "libjpeg-turbo"]
+	path = libjpeg-turbo
+	url = https://github.com/libjpeg-turbo/libjpeg-turbo

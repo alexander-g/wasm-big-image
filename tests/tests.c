@@ -22,6 +22,7 @@ int main() {
     RUN_TEST(test_tiff_read);
     RUN_TEST(test_tiff_read_patch);
     RUN_TEST(test_tiff_read_patch_tiled);
+    RUN_TEST(test_tiff_read_patch_jpeg);
 
     printf("All tests passed.\n");
     return 0;

@@ -8,7 +8,7 @@
 
 const char* TIFF_SHEEP = "tests/assets/sheep.tiff";
 const char* TIFF_TILED = "tests/assets/tiled0.tiff";
-
+const char* TIFF_JPEG  = "tests/assets/jpeg0.tiff";
 
 
 
@@ -240,3 +240,46 @@ int test_tiff_read_patch_tiled() {
 
     return 0;
 }
+
+
+
+int test_tiff_read_patch_jpeg() {
+    int rc;
+    const size_t nbytes = 1024*1024*4;
+    void* buffer = malloc(nbytes);
+
+    FILE* fp;
+    size_t fsize;
+    rc = open_asset_tiff(TIFF_JPEG, &fp, &fsize);
+    assert(rc == 0);
+
+
+    rc = tiff_read_patch(
+        fsize, 
+        mock_read_callback2, 
+        (void*)fp, 
+        /*src_x      =*/ 20,
+        /*src_y      =*/ 20,
+        /*src_width  =*/ 380,
+        /*src_height =*/ 480,
+        /*dst_width  =*/ 380,
+        /*dst_height =*/ 480,
+        buffer, 
+        nbytes,
+        NULL
+    );
+    assert(rc == 0);
+    assert(((uint32_t*)buffer)[0] == 0xff000000);  // (0,0,0,255)
+
+    // lossy compression
+    const uint32_t lastpixel = ((uint32_t*)buffer)[479*380+379];
+    assert( (lastpixel & 0xff000000) >> 24 == 0xff );
+    assert( (lastpixel & 0x00ff0000) >> 16  > 122 );
+    assert( (lastpixel & 0x00ff0000) >> 16  < 130 );
+    assert( (lastpixel & 0x0000ff00) >> 8   > 250 );
+    assert( (lastpixel & 0x000000ff) >> 0   > 122 );
+    assert( (lastpixel & 0x000000ff) >> 0   < 130 );
+
+    return 0;
+}
+
