@@ -16,6 +16,8 @@ enum Error {
     TIFF_GET_ROWS_PER_STRIP_FAILED = -10, 
     MALLOC_FAILED          = -11,
     TIFF_READ_STRIP_FAILED = -12, 
+    TIFF_GET_TILE_SIZES_FAILED = -13, 
+    TIFF_READ_TILE_FAILED  = -14,
 
     NOT_IMPLEMENTED       = -999,
 };

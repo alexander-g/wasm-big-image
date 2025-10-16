@@ -169,6 +169,7 @@ export class BigImage {
         const nbytes:number = dst_width * dst_height * 4;
         const buffer:pointer = this.wasm._malloc(nbytes)
         const rc_ptr:pointer = this.wasm._malloc(4)
+        this.wasm.HEAP32[rc_ptr >> 2] = 777;
         let rc:number = this.wasm._tiff_read_patch(
             file.size, 
             this.#read_file_callback_ptr, 

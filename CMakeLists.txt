@@ -42,6 +42,7 @@ if(RUNNING_EMSCRIPTEN)
         -sEXPORTED_FUNCTIONS=_tiff_get_size,_tiff_read,_tiff_read_patch,_malloc,_free
         -sENVIRONMENT=web 
         -sALLOW_TABLE_GROWTH 
+        -sALLOW_MEMORY_GROWTH=1
         -sWASM_BIGINT 
         -sASYNCIFY 
         -O3

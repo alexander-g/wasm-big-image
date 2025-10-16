@@ -5,14 +5,14 @@
 
 #define RUN_TEST(func)               \
     {                                \
-    printf("%s...", #func);          \
+    printf("\n%s...\n", #func);      \
     fflush(stdout);                  \
     const int rc = func();           \
     if(rc != 0){                     \
-        printf("FAIL\n");            \
+        printf("%s...FAIL\n", #func);\
         return 1;                    \
     }                                \
-    printf("OK\n");                  \
+    printf("%s...OK\n", #func);      \
     }
 
 
@@ -21,6 +21,7 @@ int main() {
     RUN_TEST(test_cb_cookiefile);
     RUN_TEST(test_tiff_read);
     RUN_TEST(test_tiff_read_patch);
+    RUN_TEST(test_tiff_read_patch_tiled);
 
     printf("All tests passed.\n");
     return 0;
