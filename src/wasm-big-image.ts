@@ -43,6 +43,33 @@ type BigImageWASM = {
         returncode:           pointer,
     ) => number,
 
+
+
+
+    _jpeg_get_size: (
+        filesize:             number,
+        read_file_callback_p: fn_pointer,
+        read_file_handle:     number,
+        width_p:   pointer,
+        height_p:  pointer,
+        tif_p:   0,
+    ) => number,
+
+    _jpeg_read_patch: (
+        filesize:             number,
+        read_file_callback_p: fn_pointer,
+        read_file_handle:     number,
+        src_x:                number,
+        src_y:                number,
+        src_width:            number,
+        src_height:           number,
+        dst_width:            number,
+        dst_height:           number,
+        dst_buffer:           pointer,
+        dst_buffersize:       number,
+        returncode:           pointer,
+    ) => number,
+
     _malloc: (nbytes:number) => pointer,
     _free:   (ptr:pointer) => void,
 

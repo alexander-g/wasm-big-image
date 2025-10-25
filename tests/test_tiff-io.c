@@ -53,7 +53,8 @@ int test_tiff_read() {
     const size_t nbytes = 1024*1024*4;
     void* buffer = malloc(nbytes);
 
-    int rc = tiff_read(999, mock_read_callback_faulty, NULL, buffer, nbytes);
+    int rc = 
+        tiff_read(999, (void*) mock_read_callback_faulty, NULL, buffer, nbytes);
     // faulty should not return nonzero rc
     assert(rc != 0);
 
@@ -63,7 +64,8 @@ int test_tiff_read() {
     rc = open_asset_tiff(TIFF_SHEEP, &fp, &fsize);
     assert(rc == 0);
     
-    rc = tiff_read(fsize, mock_read_callback2, (void*)fp, buffer, nbytes);
+    rc = 
+        tiff_read(fsize, (void*) mock_read_callback2, (void*)fp, buffer, nbytes);
     assert(rc == 0);
 
     return 0;
@@ -82,7 +84,7 @@ int test_tiff_read_patch() {
     
     rc = tiff_read_patch(
         fsize, 
-        mock_read_callback2, 
+        (void*) mock_read_callback2, 
         (void*)fp, 
         /*src_x      =*/ 50,
         /*src_y      =*/ 140,
@@ -99,7 +101,7 @@ int test_tiff_read_patch() {
     // actual bug
     rc = tiff_read_patch(
         fsize, 
-        mock_read_callback2, 
+        (void*) mock_read_callback2, 
         (void*)fp, 
         /*src_x      =*/ 50,
         /*src_y      =*/ 50,
@@ -117,7 +119,7 @@ int test_tiff_read_patch() {
 
     rc = tiff_read_patch(
         fsize, 
-        mock_read_callback2, 
+        (void*) mock_read_callback2, 
         (void*)fp, 
         /*src_x      =*/ 50,
         /*src_y      =*/ 0,
@@ -134,7 +136,7 @@ int test_tiff_read_patch() {
 
     rc = tiff_read_patch(
         fsize, 
-        mock_read_callback2, 
+        (void*) mock_read_callback2, 
         (void*)fp, 
         /*src_x      =*/ 100,
         /*src_y      =*/ 0,
@@ -154,7 +156,7 @@ int test_tiff_read_patch() {
     // out of bounds
     rc = tiff_read_patch(
         fsize, 
-        mock_read_callback2, 
+        (void*) mock_read_callback2, 
         (void*)fp, 
         /*src_x      =*/ 150,
         /*src_y      =*/ 100,
@@ -186,7 +188,7 @@ int test_tiff_read_patch_tiled() {
 
     rc = tiff_read_patch(
         fsize, 
-        mock_read_callback2, 
+        (void*) mock_read_callback2, 
         (void*)fp, 
         /*src_x      =*/ 20,
         /*src_y      =*/ 20,
@@ -205,7 +207,7 @@ int test_tiff_read_patch_tiled() {
 
     rc = tiff_read_patch(
         fsize, 
-        mock_read_callback2, 
+        (void*) mock_read_callback2, 
         (void*)fp, 
         /*src_x      =*/ 999,
         /*src_y      =*/ 799,
@@ -222,7 +224,7 @@ int test_tiff_read_patch_tiled() {
 
     rc = tiff_read_patch(
         fsize, 
-        mock_read_callback2, 
+        (void*) mock_read_callback2, 
         (void*)fp, 
         /*src_x      =*/ 300,
         /*src_y      =*/ 400,
@@ -256,7 +258,7 @@ int test_tiff_read_patch_jpeg() {
 
     rc = tiff_read_patch(
         fsize, 
-        mock_read_callback2, 
+        (void*) mock_read_callback2, 
         (void*)fp, 
         /*src_x      =*/ 20,
         /*src_y      =*/ 20,

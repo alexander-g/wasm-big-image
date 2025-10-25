@@ -1,5 +1,7 @@
+extern "C" {
 #include "./test_cb_cookiefile.c"
 #include "./test_tiff-io.c"
+}
 #include "./test_jpeg-io.cpp"
 
 

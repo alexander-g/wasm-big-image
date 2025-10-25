@@ -1,33 +1,36 @@
-/** TIFF image read functions */
+#include <cstdint>
 
 
-enum Error_TIFF_IO { 
 
-    TIFF_OPEN_FAILED             = -4, 
-    TIFF_GET_IMAGE_WIDTH_FAILED  = -5, 
-    TIFF_GET_IMAGE_HEIGHT_FAILED = -6, 
-    TIFF_READ_FULL_FAILED = -7, 
-    INVALID_SIZES2        = -9, 
-    TIFF_GET_ROWS_PER_STRIP_FAILED = -10, 
-    TIFF_READ_STRIP_FAILED = -12, 
-    TIFF_GET_TILE_SIZES_FAILED = -13, 
-    TIFF_READ_TILE_FAILED  = -14,
+extern "C" {
 
+
+enum Error_JPEG_IO { 
+    //OK = 0,
+
+    JPEG_READ_HEADER_FAILED      = -1, 
+    JPEG_START_DECOMPRESS_FAILED = -2,
+    JPEG_UNSUPPORTED_N_CHANNELS  = -3,
+    
+    //NOT_IMPLEMENTED = -999,
 };
 
 
-/** Read and decode a full tiff image (RGBA) */
-int tiff_read(
+int jpeg_get_size(
     size_t      filesize,
     const void* read_file_callback_p,
     const void* read_file_handle,
-    void*       buffer,
-    size_t      buffersize
+    // outputs
+    int32_t*    width,
+    int32_t*    height,
+    // return code (because of wasm issues)
+    int*        rc
 );
+
 
 /** Read a sub-image patch without reading the full image, and resize it to
    dst_width x dst_height (currently only nearest neighbor interpolation). */
-int tiff_read_patch(
+int jpeg_read_patch(
     size_t      filesize,
     const void* read_file_callback_p,
     const void* read_file_handle,
@@ -44,3 +47,4 @@ int tiff_read_patch(
 );
 
 
+} // end extern "C"

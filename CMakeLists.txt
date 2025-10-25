@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 project(bigimage LANGUAGES C CXX)
 
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 include(ExternalProject)
 
 
@@ -45,17 +48,20 @@ set(tiff-tests OFF)
 set(jpeg ON)
 add_subdirectory(./libtiff EXCLUDE_FROM_ALL)
 include_directories(${LIBTIFF_INCLUDE_DIRS})
+include_directories(${JPEG_INCLUDE_DIR})
 
 
 add_library(wasm_big_image STATIC 
     src/cb_cookiefile.c
     src/tiff-io.c
+    src/jpeg-io.cpp
+    src/util.c
 )
 target_link_libraries(wasm_big_image PRIVATE tiff)
 
-add_executable(tests tests/tests.c)
+add_executable(tests tests/tests.cpp)
 target_link_libraries(tests PRIVATE wasm_big_image)
-set_target_properties(tests PROPERTIES CXX_STANDARD 17)
+
 
 
 
@@ -79,7 +85,7 @@ if(RUNNING_EMSCRIPTEN)
         -sSINGLE_FILE=1 
         -sEXPORT_NAME="bigimage" 
         -sEXPORTED_RUNTIME_METHODS=addFunction,Asyncify
-        -sEXPORTED_FUNCTIONS=_tiff_get_size,_tiff_read,_tiff_read_patch,_malloc,_free
+        -sEXPORTED_FUNCTIONS=_tiff_get_size,_tiff_read,_tiff_read_patch,_jpeg_read_patch,_jpeg_get_size,_malloc,_free
         -sENVIRONMENT=web 
         -sALLOW_TABLE_GROWTH 
         -sALLOW_MEMORY_GROWTH=1
