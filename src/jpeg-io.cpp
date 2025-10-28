@@ -144,22 +144,11 @@ std::expected<std::shared_ptr<cb_srcmgr_handle>, int> jpeg_via_cb_init(
     if (cinfo.output_components != 4) 
         return std::unexpected(JPEG_UNSUPPORTED_N_CHANNELS);
 
-
-//     // Cropping: set after jpeg_start_decompress!
-//     bool do_crop = (crop_w > 0 && crop_h > 0);
-// #if JPEG_LIB_VERSION >= 80 || defined(MEM_SRCDST_SUPPORTED)
-//     if (do_crop) {
-//         // The libjpeg crop API expects DCT block alignment (offsets must be multiples of 8 for best performance)
-//         jpeg_crop_scanline(&cinfo, (JDIMENSION*)&crop_x, (JDIMENSION*)&crop_w);
-//     }
-// #endif
-
-
     return srcmgr;
 }
 
 
-extern "C" {
+//extern "C" {
 int jpeg_read_patch(
     size_t      filesize,
     const void* read_file_callback_p,
@@ -294,19 +283,25 @@ int jpeg_get_size(
     // return code (because of wasm issues)
     int*        returncode
 ) {
-    const auto ok = jpeg_via_cb_init(
-        filesize,
-        read_file_callback_p,
-        read_file_handle
-    );
-    if(ok) {
-        *width  = ok->get()->cinfo.image_width;
-        *height = ok->get()->cinfo.image_height;
+    int rc;
+    if(returncode != NULL) *returncode = UNEXPECTED;
+    try {
+        const auto ok = jpeg_via_cb_init(
+            filesize,
+            read_file_callback_p,
+            read_file_handle
+        );
+        if(ok) {
+            *width  = ok->get()->cinfo.image_width;
+            *height = ok->get()->cinfo.image_height;
+        }
+        rc = ok? OK : ok.error();
+    } catch (...) {
+        return UNEXPECTED;
     }
 
-    const int rc = ok? OK : ok.error();
     if(returncode != NULL) *returncode = rc;
     return rc;
 }
 
-}
+//} //extern "C"

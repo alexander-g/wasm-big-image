@@ -4,6 +4,10 @@ project(bigimage LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_VERBOSE_MAKEFILE on)
+
+
+
 include(ExternalProject)
 
 
@@ -52,12 +56,15 @@ include_directories(${JPEG_INCLUDE_DIR})
 
 
 add_library(wasm_big_image STATIC 
+    src/common.cpp
     src/cb_cookiefile.c
     src/tiff-io.c
     src/jpeg-io.cpp
     src/util.c
 )
 target_link_libraries(wasm_big_image PRIVATE tiff)
+target_compile_options(wasm_big_image PRIVATE -fexceptions)
+target_compile_options(wasm_big_image PRIVATE -O3)
 
 add_executable(tests tests/tests.cpp)
 target_link_libraries(tests PRIVATE wasm_big_image)
@@ -85,11 +92,12 @@ if(RUNNING_EMSCRIPTEN)
         -sSINGLE_FILE=1 
         -sEXPORT_NAME="bigimage" 
         -sEXPORTED_RUNTIME_METHODS=addFunction,Asyncify
-        -sEXPORTED_FUNCTIONS=_tiff_get_size,_tiff_read,_tiff_read_patch,_jpeg_read_patch,_jpeg_get_size,_malloc,_free
+        -sEXPORTED_FUNCTIONS=_image_get_size,_image_read_patch,_tiff_get_size,_tiff_read,_tiff_read_patch,_jpeg_read_patch,_jpeg_get_size,_malloc,_free
         -sENVIRONMENT=web 
         -sALLOW_TABLE_GROWTH 
         -sALLOW_MEMORY_GROWTH=1
         -sWASM_BIGINT 
+        -fexceptions
         -sASYNCIFY 
         -O3
         -o big-image.js

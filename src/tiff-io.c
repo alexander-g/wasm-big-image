@@ -25,7 +25,7 @@ int tiff_get_size(
     const void* read_file_handle,
     size_t*     width,  // TODO: make this explicit uint64_t
     size_t*     height,
-    TIFF**      tif_p
+    void**      tif_p
 ) {
     TIFF* tif = tiff_client_open(filesize, read_file_callback_p, read_file_handle);
     if(tif == NULL)
@@ -46,7 +46,7 @@ int tiff_get_size(
     *width  = (size_t) w;
     *height = (size_t) h;
     if(tif_p != NULL)
-        *tif_p = tif;
+        *tif_p = (void*)tif;
     
     return 0;
 }
@@ -391,7 +391,7 @@ int tiff_read_patch(
         read_file_handle, 
         &image_width, 
         &image_height, 
-        &tif
+        (void**)&tif
     );
     if(rc != 0) {
         if(returncode != NULL) *returncode = rc;

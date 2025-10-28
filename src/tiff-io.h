@@ -1,17 +1,21 @@
 /** TIFF image read functions */
 
+#include <stddef.h>
+
+#include "./cb_cookiefile.h"
+
 
 enum Error_TIFF_IO { 
 
-    TIFF_OPEN_FAILED             = -4, 
-    TIFF_GET_IMAGE_WIDTH_FAILED  = -5, 
-    TIFF_GET_IMAGE_HEIGHT_FAILED = -6, 
-    TIFF_READ_FULL_FAILED = -7, 
-    INVALID_SIZES2        = -9, 
-    TIFF_GET_ROWS_PER_STRIP_FAILED = -10, 
-    TIFF_READ_STRIP_FAILED = -12, 
-    TIFF_GET_TILE_SIZES_FAILED = -13, 
-    TIFF_READ_TILE_FAILED  = -14,
+    TIFF_OPEN_FAILED             = -201, 
+    TIFF_GET_IMAGE_WIDTH_FAILED  = -202, 
+    TIFF_GET_IMAGE_HEIGHT_FAILED = -203, 
+    TIFF_READ_FULL_FAILED        = -204, 
+    INVALID_SIZES2               = -205, 
+    TIFF_GET_ROWS_PER_STRIP_FAILED = -206, 
+    TIFF_READ_STRIP_FAILED       = -207, 
+    TIFF_GET_TILE_SIZES_FAILED   = -208, 
+    TIFF_READ_TILE_FAILED        = -209,
 
 };
 
@@ -43,4 +47,14 @@ int tiff_read_patch(
     int*        rc
 );
 
+
+int tiff_get_size(
+    size_t      filesize,
+    const read_file_callback_ptr_t read_file_callback_p,
+    const void* read_file_handle,
+    size_t*     width,
+    size_t*     height,
+    // TODO: return code
+    void**      tif_p
+);
 

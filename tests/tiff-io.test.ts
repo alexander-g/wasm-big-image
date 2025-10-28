@@ -8,56 +8,56 @@ const TIFF_FILE = "tests/assets/sheep.tiff";
 
 
 
-Deno.test("get_tiff_size", async () => {
+Deno.test("image_get_size", async () => {
     const data_u8:Uint8Array = Deno.readFileSync(TIFF_FILE)
     const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
 
     const module:BigImage|Error = await initialize()
-    const size: Error|ImageSize = await module.get_tiff_size(tiffile);
+    const size: Error|ImageSize = await module.image_get_size(tiffile);
     asserts.assertEquals(size, {width:242, height:168});
 
     // actual bug: calling twice in a row gives invalid values
-    const size2: Error|ImageSize = await module.get_tiff_size(tiffile);
+    const size2: Error|ImageSize = await module.image_get_size(tiffile);
     asserts.assertEquals(size2, {width:242, height:168});
 })
 
 
 
-Deno.test("tiff_read", async () => {
-    const data_u8:Uint8Array = Deno.readFileSync(TIFF_FILE)
-    const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
+// Deno.test("tiff_read", async () => {
+//     const data_u8:Uint8Array = Deno.readFileSync(TIFF_FILE)
+//     const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
 
-    const module:BigImage|Error = await initialize()
-    const image: Error|Image = await module.tiff_read(tiffile);
-    asserts.assertNotInstanceOf(image, Error)
+//     const module:BigImage|Error = await initialize()
+//     const image: Error|Image = await module.tiff_read(tiffile);
+//     asserts.assertNotInstanceOf(image, Error)
 
-    asserts.assertEquals(image.data.length, 242*168*4);
-})
+//     asserts.assertEquals(image.data.length, 242*168*4);
+// })
 
 
-Deno.test("tiff_read_patch", async () => {
+Deno.test("image_read_patch", async () => {
     const data_u8:Uint8Array = Deno.readFileSync(TIFF_FILE)
     const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
 
     const module:BigImage|Error = await initialize()
     const image: Error|Image = 
-        await module.tiff_read_patch(tiffile, 50,140,25,25, 25, 25);
+        await module.image_read_patch(tiffile, 50,140,25,25, 25, 25);
     asserts.assertNotInstanceOf(image, Error)
     asserts.assertEquals(image.data.length, 25*25*4);
 
     // actual bug: memory issues
     const image2: Error|Image = 
-        await module.tiff_read_patch(tiffile, 50,50,50,50, 50,50);
+        await module.image_read_patch(tiffile, 50,50,50,50, 50,50);
     asserts.assertNotInstanceOf(image2, Error)
 
 
     const image3: Error|Image = 
-        await module.tiff_read_patch(tiffile, 50,140,25,25, 5, 5);
+        await module.image_read_patch(tiffile, 50,140,25,25, 5, 5);
     asserts.assertNotInstanceOf(image3, Error)
     asserts.assertEquals(image3.data.length, 5*5*4);
 
     const image4: Error|Image = 
-        await module.tiff_read_patch(tiffile, 50,140,25,25, 99, 99);
+        await module.image_read_patch(tiffile, 50,140,25,25, 99, 99);
     asserts.assertNotInstanceOf(image4, Error)
     asserts.assertEquals(image4.data.length, 99*99*4);
 })

@@ -11,6 +11,32 @@ type fn_pointer = number;
 type pointer = number;
 
 type BigImageWASM = {
+    
+    _image_get_size: (
+        filesize:             number,
+        read_file_callback_p: fn_pointer,
+        read_file_handle:     number,
+        width_p:   pointer,
+        height_p:  pointer,
+        returncode: pointer,
+    ) => number,
+
+    _image_read_patch: (
+        filesize:             number,
+        read_file_callback_p: fn_pointer,
+        read_file_handle:     number,
+        src_x:                number,
+        src_y:                number,
+        src_width:            number,
+        src_height:           number,
+        dst_width:            number,
+        dst_height:           number,
+        dst_buffer:           pointer,
+        dst_buffersize:       number,
+        returncode:           pointer,
+    ) => number,
+
+
     _tiff_get_size: (
         filesize:             number,
         read_file_callback_p: fn_pointer,
@@ -111,7 +137,7 @@ export class BigImage {
             wasm.addFunction(this.#read_file_callback, 'iiijj');
     }
 
-    async get_tiff_size(file:File): Promise<ImageSize|Error> {
+    async image_get_size(file:File): Promise<ImageSize|Error> {
         const handle:number = this.#handle_counter++;
         this.#read_file_callback_table[handle] = file;
 
@@ -119,13 +145,16 @@ export class BigImage {
         const h_ptr:number = this.wasm._malloc(8);
         this.wasm.HEAP64[w_ptr >> 3] = 0n;
         this.wasm.HEAP64[h_ptr >> 3] = 0n;
-        const rc:number = await this.wasm._tiff_get_size(
+        const rc_ptr:pointer = this.wasm._malloc(4)
+        this.wasm.HEAP32[rc_ptr >> 2] = 777;
+
+        let rc:number = await this.wasm._image_get_size(
             file.size, 
             this.#read_file_callback_ptr, 
             handle, 
             w_ptr, 
             h_ptr, 
-            0
+            rc_ptr
         )
         // NOTE: the wasm function above returns before the execution is 
         // finished because of async issues, so currently polling until done
@@ -135,9 +164,11 @@ export class BigImage {
         
         const w:number = Number(this.wasm.HEAP64[w_ptr >> 3])
         const h:number = Number(this.wasm.HEAP64[h_ptr >> 3])
+        rc = (rc == 0)? this.wasm.HEAP32[rc_ptr >> 2]! : rc;
 
         this.wasm._free(w_ptr);
         this.wasm._free(h_ptr);
+        this.wasm._free(rc_ptr);
         delete this.#read_file_callback_table[handle];
         
         // TODO: rc is invalid!
@@ -146,42 +177,42 @@ export class BigImage {
         return {width:w, height:h}
     }
 
-    async tiff_read(file:File): Promise<Image|Error> {
-        // TODO: this reads the image size twice, bc wasm._tiff_read also does
-        const imsize:ImageSize|Error = await this.get_tiff_size(file)
-        if(imsize instanceof Error)
-            return imsize as Error;
+    // async tiff_read(file:File): Promise<Image|Error> {
+    //     // TODO: this reads the image size twice, bc wasm._tiff_read also does
+    //     const imsize:ImageSize|Error = await this.get_image_size(file)
+    //     if(imsize instanceof Error)
+    //         return imsize as Error;
         
-        const handle:number = this.#handle_counter++;
-        this.#read_file_callback_table[handle] = file;
+    //     const handle:number = this.#handle_counter++;
+    //     this.#read_file_callback_table[handle] = file;
 
-        const nbytes:number = imsize.width * imsize.height * 4;
-        const buffer:pointer = this.wasm._malloc(nbytes)
-        const rc:number = this.wasm._tiff_read(
-            file.size, 
-            this.#read_file_callback_ptr, 
-            handle, 
-            buffer, 
-            nbytes,
-        )
-        // NOTE: the wasm function above returns before the execution is 
-        // finished because of async issues, so currently polling until done
-        while(this.wasm.Asyncify.currData != null)
-            await wait(1);
+    //     const nbytes:number = imsize.width * imsize.height * 4;
+    //     const buffer:pointer = this.wasm._malloc(nbytes)
+    //     const rc:number = this.wasm._tiff_read(
+    //         file.size, 
+    //         this.#read_file_callback_ptr, 
+    //         handle, 
+    //         buffer, 
+    //         nbytes,
+    //     )
+    //     // NOTE: the wasm function above returns before the execution is 
+    //     // finished because of async issues, so currently polling until done
+    //     while(this.wasm.Asyncify.currData != null)
+    //         await wait(1);
         
-        // copy
-        const rgba:Uint8Array = this.wasm.HEAPU8.slice(buffer, buffer+nbytes)
+    //     // copy
+    //     const rgba:Uint8Array = this.wasm.HEAPU8.slice(buffer, buffer+nbytes)
         
-        this.wasm._free(buffer);
-        delete this.#read_file_callback_table[handle];
+    //     this.wasm._free(buffer);
+    //     delete this.#read_file_callback_table[handle];
         
-        // TODO: rc is invalid!
-        if(rc != 0)
-            return new Error('Reading tiff file failed')
-        return {data:rgba, ...imsize};
-    }
+    //     // TODO: rc is invalid!
+    //     if(rc != 0)
+    //         return new Error('Reading tiff file failed')
+    //     return {data:rgba, ...imsize};
+    // }
 
-    async tiff_read_patch(
+    async image_read_patch(
         file:       File, 
         src_x:      number, 
         src_y:      number,
@@ -197,7 +228,7 @@ export class BigImage {
         const buffer:pointer = this.wasm._malloc(nbytes)
         const rc_ptr:pointer = this.wasm._malloc(4)
         this.wasm.HEAP32[rc_ptr >> 2] = 777;
-        let rc:number = this.wasm._tiff_read_patch(
+        let rc:number = this.wasm._image_read_patch(
             file.size, 
             this.#read_file_callback_ptr, 
             handle, 

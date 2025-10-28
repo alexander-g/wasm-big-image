@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 
-BUILDDIR=build-em
+BUILDDIR=build-wasm
 
 
 sudo docker run \
@@ -10,7 +10,7 @@ sudo docker run \
     -v `pwd`:`pwd` \
     -w `pwd`       \
     --network=host \
-    ubuntu:22.04   \
+    debian:stable-slim   \
     bash -c "umask 0000                         \
         && apt-get update                       \
         && DEBIAN_FRONTEND=noninteractive       \
@@ -23,20 +23,6 @@ sudo docker run \
             -DCMAKE_VERBOSE_MAKEFILE=ON         \
             ..                                  \
         && emmake make                          \
-        && bash \
-        && emcc libexample0.a                   \
-            -sMODULARIZE=1                      \
-            -sEXPORTED_FUNCTIONS=_example0      \
-            -sEXPORTED_RUNTIME_METHODS=cwrap    \
-            -o example0.js                      \
-        "
-
-
-# emcmake cmake .....
-# emmake make
-# emmake make install
-# emcc install/lib/libtiff.a -o libtiff.js
-# emcc libexample0.a libtiff/libtiff/libtiff.a -sMODULARIZE=1 -sEXPORT_NAME="createModule"  -sEXPORTED_FUNCTIONS=_example0,_write_file,_main,_malloc,_free -s EXPORTED_RUNTIME_METHODS=cwrap -o example0.js
-
+        && bash"
 
 echo done;
