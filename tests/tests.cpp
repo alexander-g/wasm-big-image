@@ -3,7 +3,7 @@ extern "C" {
 #include "./test_tiff-io.c"
 }
 #include "./test_jpeg-io.cpp"
-
+#include "./test_png-io.cpp"
 
 
 #define RUN_TEST(func)               \
@@ -27,6 +27,7 @@ int main() {
     RUN_TEST(test_tiff_read_patch_tiled);
     RUN_TEST(test_tiff_read_patch_jpeg);
     RUN_TEST(test_jpeg_0);
+    RUN_TEST(test_png_0);
 
     printf("All tests passed.\n");
     return 0;

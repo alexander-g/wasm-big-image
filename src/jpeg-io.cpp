@@ -219,8 +219,10 @@ int jpeg_read_patch(
         dst_height, 
         &snf
     );
-    if(rc != OK)
+    if(rc != OK) {
+        if(returncode != NULL) *returncode = rc;
         return rc;
+    }
 
 
     int scanline_x = src_x;

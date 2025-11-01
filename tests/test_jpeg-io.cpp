@@ -87,9 +87,6 @@ int test_jpeg_0(){
     );
     assert(rc==0);
     
-    FILE* f = fopen("DEBUG/2025-10-25_thumbnaildebug/dbg.dump", "wb");
-    fwrite(buffer, 1, sizeof(buffer), f);
-    fclose(f);
     
     const uint32_t firstpixel = ((uint32_t*)buffer)[0];
     assert( (firstpixel & 0xff000000) >> 24 == 0xff );
@@ -127,10 +124,6 @@ int test_jpeg_0(){
     );
     assert(rc==0);
     {
-    FILE* f = fopen("DEBUG/2025-10-25_thumbnaildebug/dbg.dump", "wb");
-    fwrite(buffer, 1, sizeof(buffer), f);
-    fclose(f);
-
     // last valid pixel
     const uint32_t lastpixel = ((uint32_t*)buffer)[(1000/2-1)*444 + (444-1)];
     assert( (lastpixel & 0xff000000) >> 24 == 0xff );
