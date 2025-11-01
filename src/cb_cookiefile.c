@@ -53,7 +53,7 @@ int64_t cb_fseek(void* vcookie, uint64_t offset, int whence) {
     case SEEK_CUR:
         if (offset + cookie->cursor < 0)
             return -1;
-        pos = offset;
+        pos = cookie->cursor + offset;
         if (pos > cookie->size)
             return -1;
         break;

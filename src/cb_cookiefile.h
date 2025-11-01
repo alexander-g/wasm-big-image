@@ -1,6 +1,10 @@
 /** Emulate a readonly file stream by requesting data from a callback */
 
+#ifndef CB_COOKFILE_H
+#define CB_COOKFILE_H
+
 #include <stdint.h>
+#include <stdio.h>
 
 
 typedef int (*read_file_callback_ptr_t)(
@@ -43,3 +47,4 @@ int64_t cb_fseek(void* vhandle, uint64_t offset, int whence);
 int     cb_fclose(void* handle);
 
 
+#endif
