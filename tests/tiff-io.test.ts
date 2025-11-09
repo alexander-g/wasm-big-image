@@ -22,19 +22,6 @@ Deno.test("image_get_size", async () => {
 })
 
 
-
-// Deno.test("tiff_read", async () => {
-//     const data_u8:Uint8Array = Deno.readFileSync(TIFF_FILE)
-//     const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
-
-//     const module:BigImage|Error = await initialize()
-//     const image: Error|Image = await module.tiff_read(tiffile);
-//     asserts.assertNotInstanceOf(image, Error)
-
-//     asserts.assertEquals(image.data.length, 242*168*4);
-// })
-
-
 Deno.test("image_read_patch", async () => {
     const data_u8:Uint8Array = Deno.readFileSync(TIFF_FILE)
     const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
@@ -60,5 +47,17 @@ Deno.test("image_read_patch", async () => {
         await module.image_read_patch(tiffile, 50,140,25,25, 99, 99);
     asserts.assertNotInstanceOf(image4, Error)
     asserts.assertEquals(image4.data.length, 99*99*4);
+})
+
+
+Deno.test("image_read_patch_and_encode", async() => {
+    const data_u8:Uint8Array = Deno.readFileSync(TIFF_FILE)
+    const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
+
+    const module:BigImage|Error = await initialize()
+    const image: Error|File = 
+        await module.image_read_patch_and_encode(tiffile, 50,140,25,25, 25,25, false);
+    
+    asserts.assertNotInstanceOf(image, Error)
 })
 

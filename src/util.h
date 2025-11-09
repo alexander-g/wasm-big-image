@@ -9,6 +9,7 @@ enum Error {
     NEGATIVE_OFFSETS = -3, 
     OFFSETS_OUT_OF_BOUNDS = -4,
 
+    UNKNOWN_FORMAT  = -996,
     MALLOC_FAILED   = -997,
     UNEXPECTED      = -998,
     NOT_IMPLEMENTED = -999,

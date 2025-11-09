@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <jpeglib.h>
+#include <turbojpeg.h>
 
 #include "./jpeg-io.hpp"
 extern "C" {
@@ -305,5 +306,53 @@ int jpeg_get_size(
     if(returncode != NULL) *returncode = rc;
     return rc;
 }
+
+
+
+
+std::expected<Buffer_p, int> jpeg_compress(
+    // input
+    const uint8_t* rgba, 
+    int32_t width, 
+    int32_t height
+) {
+    tjhandle handle = tjInitCompress();
+    if(!handle) 
+        return std::unexpected(TURBOJPEG_INIT_FAILED);
+    
+    unsigned char *jpeg_buf = NULL;
+    unsigned long jpeg_size = 0;
+    const int subsamp = TJSAMP_444; // keep alpha ignored, full chroma
+    const int quality = 95;
+
+    int rc;
+    rc = tjCompress2(
+        handle,
+        rgba,
+        width,
+        0,
+        height,
+        TJPF_RGBA,
+        &jpeg_buf,
+        &jpeg_size,
+        subsamp,
+        quality,
+        TJFLAG_FASTDCT
+    );
+    tjDestroy(handle);
+    if(rc != 0) 
+        return std::unexpected(TURBOJPEG_COMPRESS_FAILED);
+
+
+    const auto jpeg_deleter = [](Buffer* b){ 
+        if(!b)
+            return;
+        tjFree(b->data); 
+        delete b;
+    };
+    return Buffer_p( new Buffer{jpeg_buf, jpeg_size}, jpeg_deleter );
+}
+
+
 
 //} //extern "C"

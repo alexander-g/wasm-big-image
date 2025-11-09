@@ -36,25 +36,7 @@ type BigImageWASM = {
         returncode:           pointer,
     ) => number,
 
-
-    _tiff_get_size: (
-        filesize:             number,
-        read_file_callback_p: fn_pointer,
-        read_file_handle:     number,
-        width_p:   pointer,
-        height_p:  pointer,
-        tif_p:   0,
-    ) => number,
-
-    _tiff_read: (
-        filesize:             number,
-        read_file_callback_p: fn_pointer,
-        read_file_handle:     number,
-        buffer:               pointer,
-        buffersize:           number,
-    ) => number,
-    
-    _tiff_read_patch: (
+    _image_read_patch_and_encode: (
         filesize:             number,
         read_file_callback_p: fn_pointer,
         read_file_handle:     number,
@@ -64,37 +46,14 @@ type BigImageWASM = {
         src_height:           number,
         dst_width:            number,
         dst_height:           number,
-        dst_buffer:           pointer,
-        dst_buffersize:       number,
+        lossless:             boolean,
+        output_buffer:        pointer,
+        output_size:          pointer,
         returncode:           pointer,
     ) => number,
 
+    _free_output_buffer: (buffer_p:pointer) => number,
 
-
-
-    _jpeg_get_size: (
-        filesize:             number,
-        read_file_callback_p: fn_pointer,
-        read_file_handle:     number,
-        width_p:   pointer,
-        height_p:  pointer,
-        tif_p:   0,
-    ) => number,
-
-    _jpeg_read_patch: (
-        filesize:             number,
-        read_file_callback_p: fn_pointer,
-        read_file_handle:     number,
-        src_x:                number,
-        src_y:                number,
-        src_width:            number,
-        src_height:           number,
-        dst_width:            number,
-        dst_height:           number,
-        dst_buffer:           pointer,
-        dst_buffersize:       number,
-        returncode:           pointer,
-    ) => number,
 
     _malloc: (nbytes:number) => pointer,
     _free:   (ptr:pointer) => void,
@@ -177,41 +136,6 @@ export class BigImage {
         return {width:w, height:h}
     }
 
-    // async tiff_read(file:File): Promise<Image|Error> {
-    //     // TODO: this reads the image size twice, bc wasm._tiff_read also does
-    //     const imsize:ImageSize|Error = await this.get_image_size(file)
-    //     if(imsize instanceof Error)
-    //         return imsize as Error;
-        
-    //     const handle:number = this.#handle_counter++;
-    //     this.#read_file_callback_table[handle] = file;
-
-    //     const nbytes:number = imsize.width * imsize.height * 4;
-    //     const buffer:pointer = this.wasm._malloc(nbytes)
-    //     const rc:number = this.wasm._tiff_read(
-    //         file.size, 
-    //         this.#read_file_callback_ptr, 
-    //         handle, 
-    //         buffer, 
-    //         nbytes,
-    //     )
-    //     // NOTE: the wasm function above returns before the execution is 
-    //     // finished because of async issues, so currently polling until done
-    //     while(this.wasm.Asyncify.currData != null)
-    //         await wait(1);
-        
-    //     // copy
-    //     const rgba:Uint8Array = this.wasm.HEAPU8.slice(buffer, buffer+nbytes)
-        
-    //     this.wasm._free(buffer);
-    //     delete this.#read_file_callback_table[handle];
-        
-    //     // TODO: rc is invalid!
-    //     if(rc != 0)
-    //         return new Error('Reading tiff file failed')
-    //     return {data:rgba, ...imsize};
-    // }
-
     async image_read_patch(
         file:       File, 
         src_x:      number, 
@@ -258,6 +182,75 @@ export class BigImage {
         if(rc != 0)
             return new Error(`Reading tiff file failed. rc = ${rc}`)
         return {data:rgba, width:src_width, height:src_height};
+    }
+
+    async image_read_patch_and_encode(
+        file:       File, 
+        src_x:      number, 
+        src_y:      number,
+        src_width:  number,
+        src_height: number,
+        dst_width:  number,
+        dst_height: number,
+        lossless:   boolean,
+    ): Promise<File|Error> {
+        const handle:number = this.#handle_counter++;
+        this.#read_file_callback_table[handle] = file;
+
+        const output_buffer_pp:pointer = this.wasm._malloc(4);
+        const output_size_p:pointer = this.wasm._malloc(8);
+        const rc_ptr:pointer = this.wasm._malloc(4)
+        this.wasm.HEAP32[rc_ptr >> 2] = 777;
+        
+        let output_buffer_p:pointer|undefined;
+
+        let rc:number = 777;
+        try {
+            rc = this.wasm._image_read_patch_and_encode(
+                file.size, 
+                this.#read_file_callback_ptr, 
+                handle, 
+                src_x,
+                src_y,
+                src_width,
+                src_height,
+                dst_width,
+                dst_height,
+                lossless,
+                output_buffer_pp, 
+                output_size_p,
+                rc_ptr
+            )
+            // NOTE: the wasm function above returns before the execution is 
+            // finished because of async issues, so currently polling until done
+            while(this.wasm.Asyncify.currData != null)
+                await wait(1);
+        
+            
+            rc = (rc == 0)? this.wasm.HEAP32[rc_ptr >> 2]! : rc;
+            if(rc != 0)
+                return new Error(`Reading tiff file failed. rc = ${rc}`)
+            
+            output_buffer_p = this.wasm.HEAP32[output_buffer_pp >> 2]!;
+            const output_size:number = Number(this.wasm.HEAP64[output_size_p >> 3]);
+            const encoded_image_data:Uint8Array = 
+                this.wasm.HEAPU8.slice(output_buffer_p, output_buffer_p+output_size)
+            
+            // @ts-ignore typescript is annoying
+            return new File([encoded_image_data], file.name, {type:file.type});
+        } catch(e) {
+            return e as Error;
+        } finally {
+        
+            this.wasm._free(output_buffer_pp);
+            this.wasm._free(output_size_p);
+            this.wasm._free(rc_ptr);
+            delete this.#read_file_callback_table[handle];
+
+            if(output_buffer_p != undefined) 
+                this.wasm._free_output_buffer(output_buffer_p);
+            
+        }
     }
 
 

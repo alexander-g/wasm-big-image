@@ -295,7 +295,7 @@ static int tiff_read_patch_tiles(
     
     // a boolean array indicating if a tile has been processed
     uint8_t* tiles_processed = malloc(ntiles);
-    if(tilebuffer == NULL)  {
+    if(tiles_processed == NULL)  {
         free(tilebuffer);
         return MALLOC_FAILED;
     }
@@ -316,7 +316,7 @@ static int tiff_read_patch_tiles(
             const int tile_x = image_x - image_x % tile_width;
             const int tile_y = image_y - image_y % tile_height;
             
-            memset(tilebuffer, 0, nbytes_tile);
+            //memset(tilebuffer, 0, nbytes_tile);
             rc = TIFFReadRGBATileExt(tif, tile_x, tile_y, tilebuffer, 0);
             if(rc != 1) {
                 free(tilebuffer);
