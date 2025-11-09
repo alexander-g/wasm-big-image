@@ -22,6 +22,8 @@ ExternalProject_Add(
         -DENABLE_SHARED=OFF
         -DENABLE_STATIC=ON
         -DBUILD_SHARED_LIBS=OFF
+        -DWITH_TESTS=OFF
+        -DWITH_TOOLS=OFF
         -DWITH_SIMD=TRUE
         #emscripten    
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -97,9 +99,9 @@ target_include_directories(wasm_big_image PRIVATE
 target_link_libraries(wasm_big_image PRIVATE tiff)
 target_link_libraries(wasm_big_image PRIVATE png_static)
 target_link_libraries(wasm_big_image PRIVATE zlibstatic)
+target_link_libraries(wasm_big_image PRIVATE ${CMAKE_BINARY_DIR}/libjpeg-turbo-install/lib/libturbojpeg.a)
 target_compile_options(wasm_big_image PRIVATE -fexceptions)
 target_compile_options(wasm_big_image PRIVATE -O3)
-
 
 
 if(DEFINED CMAKE_TOOLCHAIN_FILE AND CMAKE_TOOLCHAIN_FILE MATCHES "emscripten" OR DEFINED ENV{EMSCRIPTEN})
@@ -117,6 +119,13 @@ endif()
 
 
 if(RUNNING_EMSCRIPTEN)
+  target_compile_options(wasm_big_image PRIVATE -msimd128)
+  target_compile_options(tiff PRIVATE -msimd128)
+  target_compile_options(png_static PRIVATE -msimd128)
+  target_compile_options(zlibstatic PRIVATE -msimd128)
+  # TODO:
+  #target_compile_options(${CMAKE_BINARY_DIR}/libjpeg-turbo-install/lib/libturbojpeg.a PRIVATE -msimd128)
+
   add_custom_target(wasm-js ALL
     COMMAND ${CMAKE_COMMAND} -E echo "Running emcc"
     BYPRODUCTS ${CMAKE_BINARY_DIR}/big-image.js
@@ -124,6 +133,7 @@ if(RUNNING_EMSCRIPTEN)
       libwasm_big_image.a 
       libtiff/libtiff/libtiff.a  
       libjpeg-turbo-install/lib/libjpeg.a
+      libjpeg-turbo-install/lib/libturbojpeg.a
       libpng/libpng.a
       zlib/libz.a
         -sEXPORT_ES6 
@@ -131,7 +141,7 @@ if(RUNNING_EMSCRIPTEN)
         -sSINGLE_FILE=1 
         -sEXPORT_NAME="bigimage" 
         -sEXPORTED_RUNTIME_METHODS=addFunction,Asyncify
-        -sEXPORTED_FUNCTIONS=_image_get_size,_image_read_patch,_tiff_get_size,_tiff_read,_tiff_read_patch,_jpeg_read_patch,_jpeg_get_size,_malloc,_free
+        -sEXPORTED_FUNCTIONS=_image_get_size,_image_read_patch,_image_read_patch_and_encode,_free_output_buffer,_malloc,_free
         -sENVIRONMENT=web 
         -sALLOW_TABLE_GROWTH 
         -sALLOW_MEMORY_GROWTH=1

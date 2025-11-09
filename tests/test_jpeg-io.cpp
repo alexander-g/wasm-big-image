@@ -160,3 +160,14 @@ int test_jpeg_0(){
 }
 
 
+
+int test_jpeg_compress0() {
+    const int32_t w = 400;
+    const int32_t h = 500;
+    uint8_t data[w*h*4] = {255};
+
+    const auto buffer = jpeg_compress(data, w, h);
+
+    return 0;
+}
+

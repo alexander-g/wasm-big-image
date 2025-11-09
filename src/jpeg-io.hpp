@@ -1,7 +1,9 @@
 #include <cstdint>
+#include <expected>
+#include <memory>
 
 
-
+// TODO: remove extern C?
 extern "C" {
 
 
@@ -11,6 +13,9 @@ enum Error_JPEG_IO {
     JPEG_READ_HEADER_FAILED      = -101, 
     JPEG_START_DECOMPRESS_FAILED = -102,
     JPEG_UNSUPPORTED_N_CHANNELS  = -103,
+
+    TURBOJPEG_INIT_FAILED        = -151,
+    TURBOJPEG_COMPRESS_FAILED    = -152,
     
     //NOT_IMPLEMENTED = -999,
 };
@@ -47,4 +52,21 @@ int jpeg_read_patch(
 );
 
 
+
 } // end extern "C"
+
+
+struct Buffer {
+    uint8_t* data;
+    uint64_t size;
+};
+
+typedef std::shared_ptr<Buffer> Buffer_p;
+
+
+std::expected<Buffer_p, int> jpeg_compress(
+    // input
+    const uint8_t* rgba, 
+    int32_t width, 
+    int32_t height
+);
