@@ -15,7 +15,7 @@ include(ExternalProject)
 
 ExternalProject_Add(
     libjpeg-turbo
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/libjpeg-turbo
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libjpeg-turbo
     CMAKE_COMMAND ${CMAKE_COMMAND}
     CMAKE_ARGS
         -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/libjpeg-turbo-install

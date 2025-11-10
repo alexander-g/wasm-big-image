@@ -50,7 +50,6 @@ class PNG_Handle {
     {}
 
     ~PNG_Handle() {
-        printf(">>> ~PNG_Handle [%p]\n", &this->cb_handle);
         png_destroy_read_struct(&this->png, &this->info, NULL);
     }
 
@@ -116,7 +115,7 @@ class PNG_Handle {
 
         png_read_update_info(png, info);
         
-        printf("w=%i h=%i c=%i d=%i\n", w, h, color, depth);
+        //printf("w=%i h=%i c=%i d=%i\n", w, h, color, depth);
 
         return png_handle_p;
     }
@@ -256,11 +255,106 @@ int png_read_patch(
         }
 
     } catch(...) {
-
+        if(returncode != NULL) *returncode = UNEXPECTED;
+        return UNEXPECTED;
     }
 
     if(returncode != NULL) *returncode = OK;
     return OK;
+}
+
+
+
+
+
+void cb_png_mem_write(png_structp png, png_bytep data, png_size_t length) {
+    std::vector<uint8_t> *buffer = (std::vector<uint8_t>*)png_get_io_ptr(png);
+    if(!buffer || !data)
+        return;
+    
+    static_assert( sizeof(*buffer->data()) == sizeof(*data) );
+    buffer->insert(buffer->end(), data, data + length);
+}
+
+
+struct PNG_WriteHandle {
+    png_structp png;
+    png_infop   info;
+    std::vector<uint8_t> buffer;
+
+    PNG_WriteHandle(png_structp png, png_infop info):
+        png(png),
+        info(info) {
+        // pre-allocating 256KB by default
+        this->buffer.reserve(256*1024);
+    }
+
+    ~PNG_WriteHandle() {
+        png_destroy_write_struct(&this->png, &this->info);
+    }
+
+
+    static std::expected<std::shared_ptr<PNG_WriteHandle>, int> create() {
+        png_structp png = 
+            png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+        png_infop info = png_create_info_struct(png);
+        if (!png || !info) {
+            return std::unexpected(PNG_INIT_LIB_FAILED);
+        }
+
+        auto png_handle_p = std::make_shared<PNG_WriteHandle>(png, info);
+        
+        png_set_write_fn(png, &png_handle_p->buffer, cb_png_mem_write, NULL);
+        png_set_error_fn(png, NULL, user_error_fn, user_warning_fn);
+
+        return png_handle_p;
+    }
+};
+
+
+
+
+std::expected<Buffer_p, int> png_compress_binary_image(
+    const uint8_t* rgba, 
+    int32_t width, 
+    int32_t height
+) {
+    try{
+        const auto expect_png_handle = PNG_WriteHandle::create();
+        if(!expect_png_handle)
+            return std::unexpected(expect_png_handle.error());
+        
+        const std::shared_ptr<PNG_WriteHandle> png_handle = *expect_png_handle;
+
+        /* IHDR: grayscale, 8-bit depth */
+        png_set_IHDR(
+            png_handle->png, 
+            png_handle->info,
+            width, 
+            height,
+            /* bit depth = */ 8, 
+            PNG_COLOR_TYPE_GRAY,
+            PNG_INTERLACE_NONE,
+            PNG_COMPRESSION_TYPE_BASE,
+            PNG_FILTER_TYPE_BASE
+        );
+        png_write_info(png_handle->png, png_handle->info);
+
+        for(int y = 0; y < height; ++y)
+            png_write_row(png_handle->png, rgba + y*width);
+        
+        png_write_end(png_handle->png, png_handle->info);
+        
+        
+        // custom deleter that owns the handle
+        auto png_deleter = [handle = std::move(png_handle)](Buffer* b) mutable {
+            delete b;
+        };
+        return Buffer_p(
+            new Buffer{ png_handle->buffer.data(), png_handle->buffer.size() }, 
+            std::move(png_deleter)
+        );
+    } catch (...) {}
 }
 
 

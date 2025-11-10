@@ -167,6 +167,7 @@ int test_jpeg_compress0() {
     uint8_t data[w*h*4] = {255};
 
     const auto buffer = jpeg_compress(data, w, h);
+    assert( buffer.has_value() );
 
     return 0;
 }

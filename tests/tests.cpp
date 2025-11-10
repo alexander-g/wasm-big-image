@@ -30,6 +30,7 @@ int main() {
     RUN_TEST(test_jpeg_0);
     RUN_TEST(test_jpeg_compress0);
     RUN_TEST(test_png_0);
+    RUN_TEST(test_png_compress_binary_image0);
 
     printf("All tests passed.\n");
     return 0;

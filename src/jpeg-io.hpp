@@ -1,6 +1,8 @@
 #include <cstdint>
 #include <expected>
-#include <memory>
+
+#include "./util.hpp"
+
 
 
 // TODO: remove extern C?
@@ -55,13 +57,6 @@ int jpeg_read_patch(
 
 } // end extern "C"
 
-
-struct Buffer {
-    uint8_t* data;
-    uint64_t size;
-};
-
-typedef std::shared_ptr<Buffer> Buffer_p;
 
 
 std::expected<Buffer_p, int> jpeg_compress(
