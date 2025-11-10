@@ -1,4 +1,9 @@
+#include <cstddef>
 #include <cstdint>
+#include <expected>
+#include <memory>
+
+#include "./util.hpp"
 
 
 enum Error_PNG_IO { 
@@ -44,6 +49,17 @@ int png_read_patch(
 
 
 
-}
+} // extern "C"
+
+
+
+
+
+std::expected<Buffer_p, int> png_compress_binary_image(
+    const uint8_t* rgba, 
+    int32_t width, 
+    int32_t height
+);
+
 
 

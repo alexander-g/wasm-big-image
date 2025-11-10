@@ -68,3 +68,18 @@ int test_png_0(){
     return 0;
 }
 
+
+int test_png_compress_binary_image0() {
+    const int32_t w = 400;
+    const int32_t h = 500;
+    uint8_t data[w*h] = {255};
+    data[777] = 1;
+
+    const auto buffer = png_compress_binary_image(data, w, h);
+    assert( buffer.has_value() );
+
+    return 0;
+}
+
+
+
