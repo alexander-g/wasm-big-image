@@ -1,7 +1,6 @@
 #include <cstdio>
 
 #include "../src/png-io.hpp"
-#include "./util.hpp"
 
 
 
@@ -15,17 +14,16 @@ const char* PNGFILE_0 = "tests/assets/png0.png";
 int test_png_0(){
     int rc;
 
-    FILE* fp;
-    size_t fsize;
-    rc = open_asset(PNGFILE_0, &fp, &fsize);
-    assert(rc == 0);
+    const auto fhandle_o = FileHandle::open(PNGFILE_0);
+    assert(fhandle_o.has_value());
+    const FileHandle* fhandle = fhandle_o.value().get();
 
     int32_t width, height;
     rc = 777;
     png_get_size(
-        fsize, 
-        (const void*) mock_read_callback3, 
-        (void*)fp, 
+        fhandle->size, 
+        (const void*) &fhandle->read_callback, 
+        (void*) fhandle, 
         &width,
         &height,
         &rc
@@ -38,9 +36,9 @@ int test_png_0(){
     uint8_t buffer[1000*1000*4];
     rc = 777;
     png_read_patch(
-        fsize, 
-        (const void*) mock_read_callback3, 
-        (void*)fp, 
+        fhandle->size, 
+        (const void*) &fhandle->read_callback, 
+        (void*) fhandle, 
         /*src_x      =*/ 50,
         /*src_y      =*/ 50,
         /*src_width  =*/ 50,

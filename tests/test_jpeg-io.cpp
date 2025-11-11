@@ -1,4 +1,5 @@
 #include "../src/jpeg-io.hpp"
+#include "../src/util.hpp"
 
 #include <cstdio>
 
@@ -8,57 +9,20 @@ const char* JPEGFILE_0 = "tests/assets/jpeg0.jpg";
 
 
 
-// TODO: code-duplication!
-
-int mock_read_callback3(void* handle, void* dstbuf, uint64_t start, uint64_t size) {
-    //printf("\nDBG>>> %x %i %i\n", handle, start, size); fflush(stdout);
-
-    FILE* fp = (FILE*) handle;
-    fseek(fp, start, SEEK_SET);
-    fread(dstbuf, 1, size, fp);
-
-    // TODO
-    return 0;
-}
-
-
-static int open_asset_jpeg(const char* path, FILE** fp, size_t* fsize) {
-    FILE* f = fopen(path, "rb");
-    if(f == NULL)
-        return -1;
-    if (fseek(f, 0, SEEK_END) != 0) { 
-        fclose(f); 
-        return -1; 
-    }
-    const long size = ftell(f);
-    if(size < 0) { 
-        fclose(f); 
-        return -1; 
-    }
-
-    *fp = f;
-    *fsize = (size_t) size;
-    return 0;
-}
-
-
-
-
 
 int test_jpeg_0(){
     int rc;
-
-    FILE* fp;
-    size_t fsize;
-    rc = open_asset_jpeg(JPEGFILE_0, &fp, &fsize);
-    assert(rc == 0);
+    
+    const auto fhandle_o = FileHandle::open(JPEGFILE_0);
+    assert(fhandle_o.has_value());
+    const FileHandle* fhandle = fhandle_o.value().get();
 
     int32_t width, height;
     rc = 777;
     jpeg_get_size(
-        fsize, 
-        (const void*) mock_read_callback3, 
-        (void*)fp, 
+        fhandle->size, 
+        (const void*) &fhandle->read_callback, 
+        (void*) fhandle, 
         &width,
         &height,
         &rc
@@ -72,9 +36,9 @@ int test_jpeg_0(){
     uint8_t buffer[1000*1000*4];
     rc = 777;
     jpeg_read_patch(
-        fsize, 
-        (const void*) mock_read_callback3, 
-        (void*)fp, 
+        fhandle->size, 
+        (const void*) &fhandle->read_callback, 
+        (void*) fhandle, 
         /*src_x      =*/ 50,
         /*src_y      =*/ 50,
         /*src_width  =*/ 50,
@@ -109,9 +73,9 @@ int test_jpeg_0(){
     rc = 777;
     memset(buffer, 0, sizeof(buffer));
     jpeg_read_patch(
-        fsize, 
-        (const void*) mock_read_callback3, 
-        (void*)fp, 
+        fhandle->size, 
+        (const void*) &fhandle->read_callback, 
+        (void*) fhandle, 
         /*src_x      =*/ 0,
         /*src_y      =*/ 0,
         /*src_width  =*/ 444,
@@ -138,9 +102,9 @@ int test_jpeg_0(){
 
     rc = 777;
     jpeg_read_patch(
-        fsize, 
-        (const void*) mock_read_callback3, 
-        (void*)fp, 
+        fhandle->size, 
+        (const void*) &fhandle->read_callback, 
+        (void*) fhandle, 
         /*src_x      =*/ 50,
         /*src_y      =*/ 50,
         /*src_width  =*/ 500000000,
