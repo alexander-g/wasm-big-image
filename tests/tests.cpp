@@ -1,3 +1,5 @@
+#undef NDEBUG
+
 extern "C" {
 #include "./test_cb_cookiefile.c"
 #include "./test_tiff-io.c"
@@ -30,6 +32,9 @@ int main() {
     RUN_TEST(test_jpeg_0);
     RUN_TEST(test_jpeg_compress0);
     RUN_TEST(test_png_0);
+    RUN_TEST(test_png_1_gray);
+    RUN_TEST(test_png_2_binary);
+    RUN_TEST(test_png_3_indexed);
     RUN_TEST(test_png_compress_binary_image0);
 
     printf("All tests passed.\n");

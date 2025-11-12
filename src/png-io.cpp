@@ -109,9 +109,11 @@ class PNG_Handle {
             png_set_tRNS_to_alpha(png);
         
         color = png_get_color_type(png, info);
+        if (color == PNG_COLOR_TYPE_GRAY || color == PNG_COLOR_TYPE_GRAY_ALPHA)
+            png_set_gray_to_rgb(png);
+
         // add a filler alpha channel if needed
-        if (color == PNG_COLOR_TYPE_RGB)
-            png_set_filler(png, 0xff, PNG_FILLER_AFTER);
+        png_set_filler(png, 0xff, PNG_FILLER_AFTER);
 
         png_read_update_info(png, info);
         
@@ -218,10 +220,9 @@ int png_read_patch(
             return rc;
         }
 
-
         const int rowbytes = png_get_rowbytes(png_handle->png, png_handle->info);
-        std::vector<png_byte> rowbuffer(rowbytes, 0x65);
-        int cursor_y = 0;
+        std::vector<png_byte> rowbuffer(rowbytes, 0x00);
+        int cursor_y = -1;
 
         for(int output_y = 0; output_y < snf.fill_height; output_y++){
             const int image_y = src_y + round(output_y * snf.step_y);
@@ -312,10 +313,19 @@ struct PNG_WriteHandle {
 };
 
 
+/** Convert pixels in `data` to binary (0 or 255) */
+std::vector<uint8_t> convert_to_binary(const uint8_t* data, size_t size) {
+    std::vector<uint8_t> output(size);
+    for(int i = 0; i < size; i++)
+        output[i] = (data[i] > 0) * 255;
+    return output;
+}
 
 
+/** Compress raw single-channel data to a binary png.
+    Pixels are converted to boolean where not zero. */
 std::expected<Buffer_p, int> png_compress_binary_image(
-    const uint8_t* rgba, 
+    const uint8_t* data, 
     int32_t width, 
     int32_t height
 ) {
@@ -340,8 +350,10 @@ std::expected<Buffer_p, int> png_compress_binary_image(
         );
         png_write_info(png_handle->png, png_handle->info);
 
+        const std::vector<uint8_t> binary = convert_to_binary(data, width*height);
+
         for(int y = 0; y < height; ++y)
-            png_write_row(png_handle->png, rgba + y*width);
+            png_write_row(png_handle->png, (png_const_bytep)binary.data() + y*width);
         
         png_write_end(png_handle->png, png_handle->info);
         
