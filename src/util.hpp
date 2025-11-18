@@ -3,7 +3,7 @@
 // TODO: convert util.h to c++
 
 
-
+#include <cstdio>
 #include <cstdint>
 #include <memory>
 #include <optional>

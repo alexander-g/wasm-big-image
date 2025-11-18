@@ -108,6 +108,7 @@ add_library(wasm_png STATIC
     src/png-io.cpp
     src/cb_cookiefile.c
     src/util.c
+    src/util.cpp
 )
 target_link_libraries(wasm_png PRIVATE png_static zlibstatic)
 target_include_directories(wasm_png PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
@@ -142,7 +143,7 @@ if(RUNNING_EMSCRIPTEN)
   # TODO:
   #target_compile_options(${JPEG_LIBRARY} PRIVATE -msimd128)
 
-  add_custom_target(wasm-js ALL
+  add_custom_target(wasm_big_image-js ALL
     COMMAND ${CMAKE_COMMAND} -E echo "Running emcc"
     BYPRODUCTS ${CMAKE_BINARY_DIR}/big-image.js
     COMMAND emcc 
