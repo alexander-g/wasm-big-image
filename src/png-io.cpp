@@ -230,6 +230,9 @@ int png_read_patch(
             
             uint8_t* rowptr = rowbuffer.data();
             while(image_y > cursor_y) {
+                if(cursor_y >= ((int)png_handle->height)-1)
+                    break;
+                
                 png_read_rows(png_handle->png, &rowptr, NULL, 1);
                 cursor_y++;
             }

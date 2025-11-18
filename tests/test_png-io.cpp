@@ -295,4 +295,33 @@ int test_png_compress_binary_image0() {
 }
 
 
+// bug: read patch upscaling image
+int test_png_upscale(){
+    int rc;
+
+    const auto fhandle_o = FileHandle::open(PNGFILE_0);
+    assert(fhandle_o.has_value());
+    const FileHandle* fhandle = fhandle_o.value().get();
+
+    // NOTE to self: maximum buffer size: 8MB otherwise getting weird segfaults
+    uint8_t buffer[1110*1800*4];
+    rc = 777;
+    png_read_patch(
+        fhandle->size, 
+        (const void*) &fhandle->read_callback, 
+        (void*) fhandle, 
+        /*src_x      =*/ 0,
+        /*src_y      =*/ 0,
+        /*src_width  =*/ 555,
+        /*src_height =*/ 888,
+        /*dst_width  =*/ 555*2,
+        /*dst_height =*/ 888*2,
+        buffer,
+        sizeof(buffer),
+        &rc
+    );
+    assert(rc==0);
+
+    return 0;
+}
 

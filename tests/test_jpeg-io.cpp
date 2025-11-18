@@ -136,3 +136,31 @@ int test_jpeg_compress0() {
     return 0;
 }
 
+
+int test_jpeg_upscale(){
+    int rc;
+    
+    const auto fhandle_o = FileHandle::open(JPEGFILE_0);
+    assert(fhandle_o.has_value());
+    const FileHandle* fhandle = fhandle_o.value().get();
+
+    uint8_t buffer[1000*1600*4];
+    rc = 777;
+    jpeg_read_patch(
+        fhandle->size, 
+        (const void*) &fhandle->read_callback, 
+        (void*) fhandle, 
+        /*src_x      =*/ 0,
+        /*src_y      =*/ 0,
+        /*src_width  =*/ 444,
+        /*src_height =*/ 777,
+        /*dst_width  =*/ 444*2,
+        /*dst_height =*/ 777*2,
+        buffer,
+        sizeof(buffer),
+        &rc
+    );
+    assert(rc==0);
+
+    return 0;
+}
