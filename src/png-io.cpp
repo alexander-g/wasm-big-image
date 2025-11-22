@@ -369,7 +369,9 @@ std::expected<Buffer_p, int> png_compress_binary_image(
             new Buffer{ png_handle->buffer.data(), png_handle->buffer.size() }, 
             std::move(png_deleter)
         );
-    } catch (...) {}
+    } catch (...) {
+        return std::unexpected(UNEXPECTED);
+    }
 }
 
 
