@@ -88,20 +88,36 @@ add_library(wasm_big_image STATIC
     src/cb_cookiefile.c
     src/tiff-io.c
     src/jpeg-io.cpp
-    src/png-io.cpp
     src/util.c
+    src/util.cpp
 )
 target_include_directories(wasm_big_image PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_CURRENT_BINARY_DIR}/libpng
-  ${CMAKE_CURRENT_BINARY_DIR}/zlib
 )
-target_link_libraries(wasm_big_image PRIVATE tiff)
-target_link_libraries(wasm_big_image PRIVATE png_static)
-target_link_libraries(wasm_big_image PRIVATE zlibstatic)
-target_link_libraries(wasm_big_image PRIVATE ${CMAKE_BINARY_DIR}/libjpeg-turbo-install/lib/libturbojpeg.a)
-target_compile_options(wasm_big_image PRIVATE -fexceptions)
-target_compile_options(wasm_big_image PRIVATE -O3)
+target_link_libraries(wasm_big_image PRIVATE 
+  tiff
+  ${JPEG_LIBRARY}
+)
+target_compile_options(wasm_big_image PRIVATE 
+  -fexceptions
+  -O3
+)
+
+
+add_library(wasm_png STATIC 
+    src/png-io.cpp
+    src/cb_cookiefile.c
+    src/util.c
+    src/util.cpp
+)
+target_link_libraries(wasm_png PRIVATE png_static zlibstatic)
+target_include_directories(wasm_png PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_options(wasm_png PRIVATE 
+  -fexceptions
+  -O3
+)
+
+
 
 
 if(DEFINED CMAKE_TOOLCHAIN_FILE AND CMAKE_TOOLCHAIN_FILE MATCHES "emscripten" OR DEFINED ENV{EMSCRIPTEN})
@@ -111,8 +127,8 @@ else()
 endif()
 
 if(NOT RUNNING_EMSCRIPTEN)
-add_executable(tests tests/tests.cpp tests/util.cpp)
-target_link_libraries(tests PRIVATE wasm_big_image)
+add_executable(tests tests/tests.cpp)
+target_link_libraries(tests PRIVATE wasm_big_image wasm_png)
 endif()
 
 
@@ -120,17 +136,19 @@ endif()
 
 if(RUNNING_EMSCRIPTEN)
   target_compile_options(wasm_big_image PRIVATE -msimd128)
+  target_compile_options(wasm_png PRIVATE -msimd128)
   target_compile_options(tiff PRIVATE -msimd128)
   target_compile_options(png_static PRIVATE -msimd128)
   target_compile_options(zlibstatic PRIVATE -msimd128)
   # TODO:
-  #target_compile_options(${CMAKE_BINARY_DIR}/libjpeg-turbo-install/lib/libturbojpeg.a PRIVATE -msimd128)
+  #target_compile_options(${JPEG_LIBRARY} PRIVATE -msimd128)
 
-  add_custom_target(wasm-js ALL
+  add_custom_target(wasm_big_image-js ALL
     COMMAND ${CMAKE_COMMAND} -E echo "Running emcc"
     BYPRODUCTS ${CMAKE_BINARY_DIR}/big-image.js
     COMMAND emcc 
       libwasm_big_image.a 
+      libwasm_png.a 
       libtiff/libtiff/libtiff.a  
       libjpeg-turbo-install/lib/libjpeg.a
       libjpeg-turbo-install/lib/libturbojpeg.a

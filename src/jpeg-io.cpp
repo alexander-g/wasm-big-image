@@ -242,8 +242,12 @@ int jpeg_read_patch(
         const int image_y = src_y + round(output_y * snf.step_y);
 
         uint8_t* rowptr = rowbuffer.data();
-        while(image_y > cursor_y)
+        while(image_y > cursor_y){
+            if(cursor_y >= ((int)cinfo.image_height)-1)
+                break;
+            
             cursor_y += jpeg_read_scanlines(&cinfo, &rowptr, 1);
+        }
         
         copy_and_resize_from_patch_into_output(
             rowptr,
