@@ -2,8 +2,8 @@
 
 extern "C" {
 #include "./test_cb_cookiefile.c"
-#include "./test_tiff-io.c"
 }
+#include "./test_tiff-io.cpp"
 #include "./test_jpeg-io.cpp"
 #include "./test_png-io.cpp"
 

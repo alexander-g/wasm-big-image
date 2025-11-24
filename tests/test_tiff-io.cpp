@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "../src/tiff-io.h"
+#include "../src/tiff-io.hpp"
 
 
 const char* TIFF_SHEEP = "tests/assets/sheep.tiff";

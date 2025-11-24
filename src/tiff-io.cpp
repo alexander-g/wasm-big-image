@@ -1,55 +1,17 @@
-#include <math.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cmath>
+#include <expected>
+#include <memory>
+#include <cstdlib>
+#include <cstring>
 #include <tiffio.h>
 
-#include "./tiff-io.h"
+#include "./tiff-io.hpp"
+extern "C" {
 #include "./cb_cookiefile.h"
 #include "./util.h"
-
-
-
-typedef void (*finished_callback_ptr_t)(int rc);
-
-
-
-TIFF* tiff_client_open(
-    size_t                   size, 
-    read_file_callback_ptr_t read_file_callback,
-    const void*              read_file_handle
-);
-
-int tiff_get_size(
-    size_t      filesize,
-    const read_file_callback_ptr_t read_file_callback_p,
-    const void* read_file_handle,
-    size_t*     width,  // TODO: make this explicit uint64_t
-    size_t*     height,
-    void**      tif_p
-) {
-    TIFF* tif = tiff_client_open(filesize, read_file_callback_p, read_file_handle);
-    if(tif == NULL)
-        return TIFF_OPEN_FAILED;
-    
-    int rc;
-    int w,h;
-    rc = TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
-    if(rc != 1 || w <= 0){
-        TIFFClose(tif);
-        return TIFF_GET_IMAGE_WIDTH_FAILED;
-    }
-    rc = TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
-    if(rc != 1 || h <= 0){
-        TIFFClose(tif);
-        return TIFF_GET_IMAGE_HEIGHT_FAILED;
-    }
-    *width  = (size_t) w;
-    *height = (size_t) h;
-    if(tif_p != NULL)
-        *tif_p = (void*)tif;
-    
-    return 0;
 }
+
+
 
 int tiff_read(
     size_t      filesize,
@@ -59,24 +21,31 @@ int tiff_read(
     size_t      buffersize
 ){
     int rc;
-    size_t w,h;
-    TIFF* tif;
-    rc = tiff_get_size(filesize, read_file_callback_p, read_file_handle, &w, &h, &tif);
-    if(rc != 0){
-        return rc;
-    }
+
+    const auto expect_tiff = TIFF_Handle::create(
+        filesize, 
+        (read_file_callback_ptr_t)read_file_callback_p, 
+        read_file_handle
+    );
+    if(!expect_tiff)
+        return expect_tiff.error();
+    const std::shared_ptr<TIFF_Handle> tiff = expect_tiff.value();
     
-    const size_t npixels = (size_t)w * h;
+    const size_t npixels = (size_t)tiff->width * tiff->height;
     const size_t required_size = npixels * sizeof(uint32_t);
-    if(buffersize < required_size) { 
-        TIFFClose(tif); 
+    if(buffersize < required_size) 
         return BUFFER_TOO_SMALL; 
-    }
-    if(!TIFFReadRGBAImageOriented(tif, w, h, buffer, ORIENTATION_TOPLEFT, 1)) {
-        TIFFClose(tif); 
-        return TIFF_READ_FULL_FAILED;
-    }
     
+    rc = TIFFReadRGBAImageOriented(
+        (TIFF*)tiff->tif, 
+        tiff->width, 
+        tiff->height, 
+        (uint32_t*)buffer, 
+        ORIENTATION_TOPLEFT, 
+        /*stopOnError=*/1
+    );
+    if(!rc)
+        return TIFF_READ_FULL_FAILED;
     return 0;
 }
 
@@ -164,7 +133,7 @@ static int tiff_read_patch_strips(
 
     memset(out, 0, nbytes_required);
     const uint32_t nbytes_strip  = image_width * rows_per_strip * pixel_size;
-    uint8_t* stripbuffer = malloc(nbytes_strip);
+    uint8_t* stripbuffer = (uint8_t*)malloc(nbytes_strip);
     if(stripbuffer == NULL)
         return MALLOC_FAILED;
     
@@ -294,7 +263,7 @@ static int tiff_read_patch_tiles(
         return MALLOC_FAILED;
     
     // a boolean array indicating if a tile has been processed
-    uint8_t* tiles_processed = malloc(ntiles);
+    uint8_t* tiles_processed = (uint8_t*)malloc(ntiles);
     if(tiles_processed == NULL)  {
         free(tilebuffer);
         return MALLOC_FAILED;
@@ -317,7 +286,7 @@ static int tiff_read_patch_tiles(
             const int tile_y = image_y - image_y % tile_height;
             
             //memset(tilebuffer, 0, nbytes_tile);
-            rc = TIFFReadRGBATileExt(tif, tile_x, tile_y, tilebuffer, 0);
+            rc = TIFFReadRGBATileExt(tif, tile_x, tile_y, (uint32_t*)tilebuffer, 0);
             if(rc != 1) {
                 free(tilebuffer);
                 free(tiles_processed);
@@ -326,13 +295,13 @@ static int tiff_read_patch_tiles(
 
             
             copy_and_resize_from_patch_into_output(
-                tilebuffer,
+                (const uint8_t*)tilebuffer,
                 tile_x,
                 tile_y,
                 tile_width,
                 tile_height,
                 image_height,
-                buffer,
+                (uint8_t*)buffer,
                 src_x,
                 src_y,
                 dst_width,
@@ -382,35 +351,28 @@ int tiff_read_patch(
     if(dst_buffersize < (dst_height * dst_width * 4) )
         return BUFFER_TOO_SMALL;
     
-    int rc;
-    size_t image_width, image_height;
-    TIFF* tif;
-    rc = tiff_get_size(
+    const auto expect_tiff = TIFF_Handle::create(
         filesize, 
-        read_file_callback_p, 
-        read_file_handle, 
-        &image_width, 
-        &image_height, 
-        (void**)&tif
+        (read_file_callback_ptr_t)read_file_callback_p, 
+        read_file_handle
     );
-    if(rc != 0) {
-        if(returncode != NULL) *returncode = rc;
-        return rc;
-    }
+    if(!expect_tiff)
+        return expect_tiff.error();
+    const std::shared_ptr<TIFF_Handle> tiff = expect_tiff.value();
 
-    if(src_x >= image_width 
-    || src_y >= image_height){
-        TIFFClose(tif);
+    int rc;
+    if(src_x >= tiff->width 
+    || src_y >= tiff->height){
         rc = OFFSETS_OUT_OF_BOUNDS;
         if(returncode != NULL) *returncode = rc;
         return rc;
     }
 
-    if(TIFFIsTiled(tif)) {
+    if(TIFFIsTiled((TIFF*)tiff->tif)) {
         rc = tiff_read_patch_tiles(
-            tif, 
-            image_width, 
-            image_height,
+            (TIFF*)tiff->tif, 
+            tiff->width, 
+            tiff->height,
             src_x, 
             src_y,
             src_width,
@@ -422,9 +384,9 @@ int tiff_read_patch(
         );
     } else {
         rc = tiff_read_patch_strips(
-            tif, 
-            image_width, 
-            image_height,
+            (TIFF*)tiff->tif, 
+            tiff->width, 
+            tiff->height,
             src_x, 
             src_y,
             src_width,
@@ -435,7 +397,6 @@ int tiff_read_patch(
             dst_buffersize
         );
     }
-    TIFFClose(tif); 
     if(returncode != NULL) *returncode = rc;
     return rc;
 }
@@ -450,7 +411,7 @@ toff_t _tiff_client_size(thandle_t handle) {
 
 // just to silence warnings
 tmsize_t _tiff_client_read(thandle_t handle, void* buffer, tmsize_t size){
-    return cb_fread(handle, buffer, size);
+    return cb_fread(handle, (char*)buffer, size);
 }
 
 // just to silence warnings
@@ -461,7 +422,8 @@ toff_t _tiff_client_seek(thandle_t handle, toff_t offset, int whence) {
 
 // just to silence warnings
 int _tiff_client_close(thandle_t handle) {
-    return cb_fclose(handle);
+    //return cb_fclose(handle);  // NOTE: cb_handle free is handled by ~TIFF_Handle
+    return 0;
 }
 
 // writing disabled
@@ -471,26 +433,33 @@ tmsize_t _tiff_client_write(thandle_t handle, void* buffer, tmsize_t size) {
 
 
 
-TIFF* tiff_client_open(
-    size_t                   size, 
-    read_file_callback_ptr_t read_file_callback,
-    const void*              read_file_handle
-){
-    void *pv;
-    struct cb_handle* handle = malloc(sizeof(struct cb_handle));
-    if (!handle) 
-        return NULL;
-    *handle = (struct cb_handle){
-        .cursor = 0,
-        .size   = size,
-        .read_file_callback = read_file_callback,
-        .read_file_handle   = read_file_handle,
-    };
-    
+TIFF_Handle::TIFF_Handle(void* tif, std::shared_ptr<struct cb_handle> cb_handle):
+    tif(tif), 
+    cb_handle(cb_handle)
+{}
+
+TIFF_Handle::~TIFF_Handle() {
+    TIFFClose(static_cast<TIFF*>(this->tif));
+}
+
+std::expected<std::shared_ptr<TIFF_Handle>, int> TIFF_Handle::create(
+    size_t filesize,
+    const read_file_callback_ptr_t read_file_callback_p,
+    const void* read_file_handle
+) {
+    const auto cb_handle_sp = std::make_shared<struct cb_handle>(
+        (struct cb_handle){
+            .size   = filesize,
+            .cursor = 0,
+            .read_file_callback = read_file_callback_p,
+            .read_file_handle   = read_file_handle,
+        }
+    );
+
     TIFF* tif = TIFFClientOpen(
         /* filename   = */ "filename.tiff", 
         /* mode       = */ "r", 
-        /* clientdata = */ handle, 
+        /* clientdata = */ cb_handle_sp.get(), 
         /* readproc   = */ _tiff_client_read, 
         /* writeproc  = */ _tiff_client_write, 
         /* seekproc   = */ _tiff_client_seek, 
@@ -500,7 +469,22 @@ TIFF* tiff_client_open(
         /* unmapproc  = */ NULL
     );
     if(tif == NULL)
-        cb_fclose(handle);  // = free()
-    return tif;
-}
+        return std::unexpected(TIFF_OPEN_FAILED);
 
+    const auto tif_handle = std::make_shared<TIFF_Handle>((void*)tif, cb_handle_sp);
+
+    int rc;
+    int w,h;
+    rc = TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &w);
+    if(rc != 1 || w <= 0)
+        return std::unexpected(TIFF_GET_IMAGE_WIDTH_FAILED);
+    
+    rc = TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &h);
+    if(rc != 1 || h <= 0)
+        return std::unexpected(TIFF_GET_IMAGE_HEIGHT_FAILED);
+
+    tif_handle->width = w;
+    tif_handle->height = h;
+
+    return tif_handle;
+}
