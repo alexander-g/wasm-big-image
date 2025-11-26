@@ -214,9 +214,13 @@ int image_read_patch_and_encode(
 
 
 int free_output_buffer(uint8_t* buffer_p) {
-    if(_buffers.contains(buffer_p))
+    if(_buffers.contains(buffer_p)){
         _buffers.erase(buffer_p);
-    return 0;
+        return 0;
+    } else {
+        printf("WARNING: tried to free non-existing output buffer %p\n", buffer_p);
+        return 1;
+    }
 }
 
 
