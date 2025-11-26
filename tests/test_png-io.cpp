@@ -265,7 +265,7 @@ int test_png_compress_binary_image0() {
     data[ 77*w + 99 ] = 0;
     data[ 77*w + 100 ] = 255;
 
-    const auto outbuffer_x = png_compress_binary_image(data, w, h);
+    const auto outbuffer_x = png_compress_image(data, w, h, 1);
     assert( outbuffer_x.has_value() );
     const auto outbuffer = outbuffer_x.value();
 
@@ -287,12 +287,57 @@ int test_png_compress_binary_image0() {
     );
     assert(rc==0);
     
-    assert( ((uint32_t*)buffer)[0] == 0xffffffff );
+    // white because thresholded during compression
+    assert( ((uint32_t*)buffer)[0] == 0xffffffff ); 
     assert( ((uint32_t*)buffer)[1*3 + 1] == 0xff000000 );
     assert( ((uint32_t*)buffer)[1*3 + 2] == 0xffffffff );
 
     return 0;
 }
+
+
+int test_png_compress_rgb_image0() {
+    const int32_t w = 400;
+    const int32_t h = 500;
+    uint8_t data[h*w*3];
+    memset(data, 200, sizeof(data));
+    data[ 77*w*3 + 99*3 +0 ] = 0;
+    data[ 77*w*3 + 99*3 +1 ] = 0;
+    data[ 77*w*3 + 99*3 +2 ] = 0;
+    data[ 77*w*3 + 100*3 +0] = 0xff;
+    data[ 77*w*3 + 100*3 +1] = 0xf0;
+    data[ 77*w*3 + 100*3 +2] = 0x0a;
+
+    const auto outbuffer_x = png_compress_image(data, w, h, 3);
+    assert( outbuffer_x.has_value() );
+    const auto outbuffer = outbuffer_x.value();
+
+    uint8_t buffer[1000*1000*4] = {77};
+    int rc = 777;
+    png_read_patch(
+        outbuffer->size, 
+        (const void*) &memory_read_cb, 
+        (void*) outbuffer->data, 
+        /*src_x      =*/ 98,
+        /*src_y      =*/ 76,
+        /*src_width  =*/ 3,
+        /*src_height =*/ 3,
+        /*dst_width  =*/ 3,
+        /*dst_height =*/ 3,
+        buffer,
+        sizeof(buffer),
+        &rc
+    );
+    assert(rc==0);
+    
+    
+    assert( ((uint32_t*)buffer)[0] == 0xffc8c8c8 );
+    assert( ((uint32_t*)buffer)[1*3 + 1] == 0xff000000 );
+    assert( ((uint32_t*)buffer)[1*3 + 2] == 0xff0af0ff );
+
+    return 0;
+}
+
 
 
 // bug: read patch upscaling image

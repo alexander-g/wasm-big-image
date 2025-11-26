@@ -327,10 +327,12 @@ std::vector<uint8_t> convert_to_binary(const uint8_t* data, size_t size) {
 
 /** Compress raw single-channel data to a binary png.
     Pixels are converted to boolean where not zero. */
-std::expected<Buffer_p, int> png_compress_binary_image(
+std::expected<Buffer_p, int> png_compress_image(
     const uint8_t* data, 
     int32_t width, 
-    int32_t height
+    int32_t height,
+    // 1: binary, 3: rgb
+    int channels
 ) {
     try{
         const auto expect_png_handle = PNG_WriteHandle::create();
@@ -339,6 +341,20 @@ std::expected<Buffer_p, int> png_compress_binary_image(
         
         const std::shared_ptr<PNG_WriteHandle> png_handle = *expect_png_handle;
 
+        std::vector<uint8_t> databuffer;
+        int png_color_type;
+        int row_stride;
+        if(channels == 1) {
+            png_color_type = PNG_COLOR_TYPE_GRAY;
+            databuffer = convert_to_binary(data, width * height);
+            row_stride = width;
+        } else if(channels == 3) {
+            png_color_type = PNG_COLOR_TYPE_RGB;
+            databuffer.assign(data, data + static_cast<size_t>(width) * height * 3);
+            row_stride = width * 3;
+        } else 
+            return std::unexpected(INVALID_CHANNELS);
+
         /* IHDR: grayscale, 8-bit depth */
         png_set_IHDR(
             png_handle->png, 
@@ -346,20 +362,20 @@ std::expected<Buffer_p, int> png_compress_binary_image(
             width, 
             height,
             /* bit depth = */ 8, 
-            PNG_COLOR_TYPE_GRAY,
+            png_color_type,
             PNG_INTERLACE_NONE,
             PNG_COMPRESSION_TYPE_BASE,
             PNG_FILTER_TYPE_BASE
         );
         png_write_info(png_handle->png, png_handle->info);
 
-        const std::vector<uint8_t> binary = convert_to_binary(data, width*height);
-
         for(int y = 0; y < height; ++y)
-            png_write_row(png_handle->png, (png_const_bytep)binary.data() + y*width);
-        
+            png_write_row(
+                png_handle->png, 
+                (png_const_bytep)databuffer.data() + y*row_stride
+            );
         png_write_end(png_handle->png, png_handle->info);
-        
+
         
         // custom deleter that owns the handle
         auto png_deleter = [handle = std::move(png_handle)](Buffer* b) mutable {

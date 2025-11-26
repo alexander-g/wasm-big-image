@@ -38,6 +38,7 @@ int main() {
     RUN_TEST(test_png_2_binary);
     RUN_TEST(test_png_3_indexed);
     RUN_TEST(test_png_compress_binary_image0);
+    RUN_TEST(test_png_compress_rgb_image0);
 
     printf("All tests passed.\n");
     return 0;

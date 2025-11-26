@@ -12,6 +12,7 @@ enum Error_PNG_IO {
     //OK = 0,
 
     PNG_INIT_LIB_FAILED      = -301, 
+    INVALID_CHANNELS         = -350,
     
     //NOT_IMPLEMENTED = -999,
 };
@@ -57,10 +58,12 @@ int png_read_patch(
 
 
 
-std::expected<Buffer_p, int> png_compress_binary_image(
+std::expected<Buffer_p, int> png_compress_image(
     const uint8_t* rgba, 
     int32_t width, 
-    int32_t height
+    int32_t height,
+    // 1: binary, 3: rgb
+    int channels
 );
 
 
