@@ -12,6 +12,8 @@
 
 
 
+extern "C" {
+
 int image_get_size(
     uint32_t    filesize,
     const void* read_file_callback_p,
@@ -224,4 +226,4 @@ int free_output_buffer(uint8_t* buffer_p) {
 }
 
 
-
+} // extern "C"
