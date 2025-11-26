@@ -1,7 +1,13 @@
 /** TIFF image read functions */
 
-#include <stddef.h>
+#include <cstddef>
+#include <expected>
+#include <memory>
+#include <vector>
 
+#include "./util.hpp"
+
+extern "C" {
 #include "./cb_cookiefile.h"
 
 
@@ -48,13 +54,29 @@ int tiff_read_patch(
 );
 
 
-int tiff_get_size(
-    size_t      filesize,
-    const read_file_callback_ptr_t read_file_callback_p,
-    const void* read_file_handle,
-    size_t*     width,
-    size_t*     height,
-    // TODO: return code
-    void**      tif_p
-);
+} // extern "C"
+
+
+
+
+class TIFF_Handle {
+    public:
+    void* tif;
+    std::shared_ptr<struct cb_handle> cb_handle;
+
+    uint32_t width;
+    uint32_t height;
+
+    TIFF_Handle(void* tif, std::shared_ptr<struct cb_handle> cb_handle);
+    ~TIFF_Handle();
+
+    static std::expected<std::shared_ptr<TIFF_Handle>, int> create(
+        size_t filesize,
+        const read_file_callback_ptr_t read_file_callback_p,
+        const void* read_file_handle
+    );
+
+};
+
+
 

@@ -32,7 +32,7 @@ void my_error_exit(j_common_ptr cinfo) {
 }
 
 
-typedef struct cb_srcmgr_handle {
+struct cb_srcmgr_handle {
     struct jpeg_source_mgr pub;
     
     jpeg_decompress_struct cinfo;
@@ -41,7 +41,12 @@ typedef struct cb_srcmgr_handle {
 
     struct cb_handle cb_handle;
     uint8_t buffer[4096];
-} cb_srcmgr_handle;
+
+    ~cb_srcmgr_handle() {
+        if(this->cinfo.src == &this->pub)
+            jpeg_destroy_decompress(&this->cinfo);
+    }
+};
 
 
 void jpeg_srcmgr_init_source(j_decompress_ptr cinfo) {
@@ -189,17 +194,18 @@ int jpeg_read_patch(
 
     try {
 
-    const auto ok = jpeg_via_cb_init(
+    const auto expect_srcmgr_handle = jpeg_via_cb_init(
         filesize,
         read_file_callback_p,
         read_file_handle
     );
-    if(!ok) {
-        if(returncode != NULL) *returncode = ok.error();
-        return ok.error();
+    if(!expect_srcmgr_handle) {
+        if(returncode != NULL) *returncode = expect_srcmgr_handle.error();
+        return expect_srcmgr_handle.error();
     }
+    std::shared_ptr<cb_srcmgr_handle> srcmgr_handle = expect_srcmgr_handle.value();
 
-    auto& cinfo = ok->get()->cinfo;
+    auto& cinfo = srcmgr_handle->cinfo;
     if(src_x >= cinfo.image_width 
     || src_y >= cinfo.image_height){
         rc = OFFSETS_OUT_OF_BOUNDS;
@@ -272,8 +278,6 @@ int jpeg_read_patch(
     } catch (...) {
         return UNEXPECTED;
     }
-
-    printf("TODO: jpeg_destroy_decompress()\n");
 
     if(returncode != NULL) *returncode = OK;
     return OK;

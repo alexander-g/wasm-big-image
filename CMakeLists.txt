@@ -86,7 +86,7 @@ add_subdirectory(./libpng EXCLUDE_FROM_ALL)
 add_library(wasm_big_image STATIC 
     src/common.cpp
     src/cb_cookiefile.c
-    src/tiff-io.c
+    src/tiff-io.cpp
     src/jpeg-io.cpp
     src/util.c
     src/util.cpp

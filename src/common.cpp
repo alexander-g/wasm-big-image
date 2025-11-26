@@ -5,14 +5,14 @@
 
 
 #include "./jpeg-io.hpp"
+#include "./tiff-io.hpp"
 
-extern "C" {
-
-#include "./tiff-io.h"
 #include "./png-io.hpp"
 #include "./util.h"
 
 
+
+extern "C" {
 
 int image_get_size(
     uint32_t    filesize,
@@ -38,22 +38,20 @@ int image_get_size(
     if(rc == OK)
         return OK;
     
-    size_t width_sz, height_sz;
-    rc = tiff_get_size(
+    
+    const auto expect_tiff = TIFF_Handle::create(
         filesize, 
-        (read_file_callback_ptr_t) read_file_callback_p, 
-        read_file_handle, 
-        &width_sz, 
-        &height_sz, 
-        //returncode,  //TODO
-        NULL
+        (read_file_callback_ptr_t)read_file_callback_p, 
+        read_file_handle
     );
-    if(rc == OK){
-        *width  = (int32_t)width_sz;
-        *height = (int32_t)height_sz;
+    if(expect_tiff) {
+        const std::shared_ptr<TIFF_Handle> tiff = expect_tiff.value();
+        *width  = (int32_t)tiff->width;
+        *height = (int32_t)tiff->height;
         if(returncode != NULL) *returncode = OK;
         return OK;
     }
+    
 
     rc = png_get_size(
         filesize, 
@@ -218,15 +216,14 @@ int image_read_patch_and_encode(
 
 
 int free_output_buffer(uint8_t* buffer_p) {
-    printf("DBG: buffer erase??\n");
     if(_buffers.contains(buffer_p)){
-        printf("DBG: buffer erase!!\n");
         _buffers.erase(buffer_p);
+        return 0;
+    } else {
+        printf("WARNING: tried to free non-existing output buffer %p\n", buffer_p);
+        return 1;
     }
-    return 0;
 }
-
-
 
 
 } // extern "C"
