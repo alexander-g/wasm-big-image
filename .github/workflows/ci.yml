@@ -57,11 +57,21 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release          \
             -DCMAKE_VERBOSE_MAKEFILE=ON
           emmake make
-          pwd
+          cd ..
+          ./deno.sh bundle --minify --outdir=./bundle src/wasm-big-image.ts
           ls -halt
 
       - name: Test
         run: |
           ./run_tests_deno.sh
+      
+      - name: Archive JS module
+        uses: actions/upload-artifact@v4
+        with:
+          name: modules
+          path: |
+            bundle/wasm-big-image.js
+            src/wasm-big-image.d.ts
+          if-no-files-found: error
 
 

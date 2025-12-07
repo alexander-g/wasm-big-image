@@ -1,8 +1,11 @@
+import type {
+    initialize as Iinitialize,
+    BigImage as IBigImage,
+    ImageSize,
+    Image,
+} from "./wasm-big-image.d.ts"
 
 
-
-export type ImageSize = {width:number, height:number}
-export type Image = {data:Uint8Array} & ImageSize;
 
 
 
@@ -90,7 +93,7 @@ export function wait(ms: number): Promise<unknown> {
 
 
 
-export class BigImage {
+export class BigImage implements IBigImage  {
     constructor(private wasm:BigImageWASM) {
         this.#read_file_callback_ptr = 
             wasm.addFunction(this.#read_file_callback, 'iiijj');
@@ -285,13 +288,11 @@ export class BigImage {
 
 
 
-export async function initialize(): Promise<BigImage> {
+export const initialize:typeof Iinitialize = async () => {
     const wasm:BigImageWASM = 
         // deno-lint-ignore no-explicit-any
         await (await import('../build-wasm/big-image.js')).default() as any;
 
-    //console.log(Object.keys(wasm.Asyncify))
-    
     return new BigImage(wasm);
 }
 
