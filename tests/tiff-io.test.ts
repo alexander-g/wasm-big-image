@@ -1,5 +1,6 @@
 import { asserts } from "./dep.ts"
 
+// @deno-types="../src/wasm-big-image.d.ts"
 import { BigImage, ImageSize, Image, initialize } from "../src/wasm-big-image.ts"
 
 
