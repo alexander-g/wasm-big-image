@@ -1,6 +1,9 @@
 
 
 #include "./util.h"
+// macro collision with util.h
+#undef max
+
 #include "./util.hpp"
 
 
