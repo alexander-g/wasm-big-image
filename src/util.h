@@ -1,5 +1,5 @@
 #include <stddef.h>
-
+#include <stdint.h>
 
 enum Error { 
     OK = 0,
