@@ -83,6 +83,30 @@ set(SKIP_INSTALL_ALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(./libpng EXCLUDE_FROM_ALL)
 
 
+
+if(NOT DEFINED eigen_SOURCE_DIR)
+  #suppress a warning regarding FetchContent
+  cmake_policy(SET CMP0135 NEW)
+  include(FetchContent)
+
+
+  set(
+    EIGEN_URL 
+    https://gitlab.com/libeigen/eigen/-/archive/5.0.0/eigen-5.0.0.zip
+  )
+  message("Maybe downloading ${EIGEN_URL}")
+  FetchContent_Declare(eigen 
+      URL ${EIGEN_URL}
+  )
+  FetchContent_MakeAvailable(eigen)
+  # note to self: making eigen_SOURCE_DIR available to upstream
+  set(eigen_SOURCE_DIR "${eigen_SOURCE_DIR}" CACHE INTERNAL "")
+endif()
+
+
+
+
+
 add_library(wasm_big_image STATIC 
     src/common.cpp
     src/cb_cookiefile.c
@@ -102,6 +126,7 @@ target_compile_options(wasm_big_image PRIVATE
   -fexceptions
   -O3
 )
+target_include_directories(wasm_big_image PUBLIC ${eigen_SOURCE_DIR})
 
 
 add_library(wasm_png STATIC 
@@ -116,7 +141,7 @@ target_compile_options(wasm_png PRIVATE
   -fexceptions
   -O3
 )
-
+target_include_directories(wasm_png PUBLIC ${eigen_SOURCE_DIR})
 
 
 

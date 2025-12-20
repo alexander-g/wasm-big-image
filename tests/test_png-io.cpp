@@ -340,6 +340,62 @@ int test_png_compress_rgb_image0() {
 
 
 
+
+int test_png_compress_and_upscale_rgba() {
+    EigenRGBAMap imagedata(100,50,4);
+    imagedata.setConstant(177);
+    imagedata(55,35,0) = 255;
+    imagedata(55,35,1) = 0;
+    imagedata(55,35,2) = 0;
+    imagedata(55,35,3) = 255;
+
+    const auto expect_buffer = 
+        resize_image_and_encode_as_png(imagedata, {.width=10002, .height=10001});
+    assert(expect_buffer.has_value());
+    const auto buffer = expect_buffer.value();
+
+    int width = -1, height = -1;
+    int rc = -999;
+    png_get_size(
+        buffer->size, 
+        (const void*) &memory_read_cb, 
+        (void*) buffer->data, 
+        &width,
+        &height,
+        &rc
+    );
+    assert(rc == 0);
+    assert(width == 10002);
+    assert(height == 10001);
+
+
+    uint8_t readbuffer[1000*1000*4] = {44};
+    rc = 777;
+    png_read_patch(
+        buffer->size, 
+        (const void*) &memory_read_cb, 
+        (void*) buffer->data, 
+        /*src_x      =*/ 7000,  // 35/50  * 10002
+        /*src_y      =*/ 5500,  // 55/100 * 10001
+        /*src_width  =*/ 3,
+        /*src_height =*/ 3,
+        /*dst_width  =*/ 3,
+        /*dst_height =*/ 3,
+        readbuffer,
+        sizeof(readbuffer),
+        &rc
+    );
+    assert(rc==0);
+    
+    assert( ((uint32_t*)readbuffer)[0]      == 0xb1b1b1b1 ); // 177
+    assert( ((uint32_t*)readbuffer)[1+3 +1] == 0xff0000ff ); // red
+
+
+    return 0;
+}
+
+
+
 // bug: read patch upscaling image
 int test_png_upscale(){
     int rc;

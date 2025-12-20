@@ -11,6 +11,9 @@ extern "C" {
 #include "./util.h"
 }
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 
 
@@ -390,4 +393,93 @@ std::expected<Buffer_p, int> png_compress_image(
     }
 }
 
+
+
+
+
+std::expected<Buffer_p, int> resize_image_and_encode_as_png(
+    Eigen::Tensor<uint8_t, 3, Eigen::RowMajor> imagedata,
+    ImageSize dst_size
+) {
+    const uint32_t height   = imagedata.dimension(0);
+    const uint32_t width    = imagedata.dimension(1);
+    const uint32_t channels = imagedata.dimension(2);
+    const auto expect_nn = NearestNeighborStreamingInterpolator::create(
+        /*crop_box=*/ {.x=0, .y=0, .w=width, .h=height},
+        /*dst_size=*/ dst_size, 
+        /*full=    */ false
+    );
+    if(!expect_nn)
+        return std::unexpected(INTERPOLATOR_CREATE_FAILED);
+    auto nn = expect_nn.value();
+
+
+    try {
+        const auto expect_png_handle = PNG_WriteHandle::create();
+        if(!expect_png_handle)
+            return std::unexpected(expect_png_handle.error());
+        
+        const std::shared_ptr<PNG_WriteHandle> png_handle = *expect_png_handle;
+
+        std::vector<uint8_t> databuffer;
+        int png_color_type;
+        if(channels == 4)
+            png_color_type = PNG_COLOR_TYPE_RGBA;
+        else 
+            return std::unexpected(INVALID_CHANNELS);
+
+        /* IHDR: grayscale, 8-bit depth */
+        png_set_IHDR(
+            png_handle->png, 
+            png_handle->info,
+            dst_size.width, 
+            dst_size.height,
+            /* bit depth = */ 8, 
+            png_color_type,
+            PNG_INTERLACE_NONE,
+            PNG_COMPRESSION_TYPE_BASE,
+            PNG_FILTER_TYPE_BASE
+        );
+        png_write_info(png_handle->png, png_handle->info);
+
+        for(int y = 0; y < height; y++) {
+            const auto expect_row = row_slice(imagedata, y);
+            if(!expect_row)
+                return std::unexpected(INTERNAL_ERROR_321);
+            const auto row = expect_row.value();
+
+            
+            #ifdef __EMSCRIPTEN__
+            // in WASM periodically return control back to JS to allow aborting
+            if(y % 10 == 0)
+                emscripten_sleep(0); 
+            #endif
+
+            const auto expect_resized = 
+                nn.push_image_rows(row, {.x=0, .y=y, .w=width, .h=1});
+            if(!expect_resized)
+                return std::unexpected(INTERNAL_ERROR_322);
+            const EigenRGBAMap resized = expect_resized->slice.eval();
+
+            const int stride = resized.dimension(1) * resized.dimension(2);
+            for(int i = 0; i < resized.dimension(0); i++)
+                png_write_row(
+                    png_handle->png, 
+                    (png_const_bytep)resized.data() + i*stride
+                );
+        }
+        png_write_end(png_handle->png, png_handle->info);
+
+        // custom deleter that owns the handle
+        auto png_deleter = [handle = std::move(png_handle)](Buffer* b) mutable {
+            delete b;
+        };
+        return Buffer_p(
+            new Buffer{ png_handle->buffer.data(), png_handle->buffer.size() }, 
+            std::move(png_deleter)
+        );
+    } catch (...) {
+        return std::unexpected(UNEXPECTED);
+    }
+}
 
