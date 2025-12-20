@@ -12,10 +12,15 @@ enum Error_PNG_IO {
     //OK = 0,
 
     PNG_INIT_LIB_FAILED      = -301, 
+    PNG_ENCODING_ABORTED     = -320,
+    INTERNAL_ERROR_321       = -321,
+    INTERNAL_ERROR_322       = -322,
+    INTERPOLATOR_CREATE_FAILED = -323,
     INVALID_CHANNELS         = -350,
     
     //NOT_IMPLEMENTED = -999,
 };
+
 
 extern "C" {
 

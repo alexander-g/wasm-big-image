@@ -11,6 +11,9 @@ extern "C" {
 #include "./util.h"
 }
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 
 
@@ -398,8 +401,6 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
     Eigen::Tensor<uint8_t, 3, Eigen::RowMajor> imagedata,
     ImageSize dst_size
 ) {
-    printf("TODO: better error return values in resize_image_and_encode_as_png()\n");
-
     const uint32_t height   = imagedata.dimension(0);
     const uint32_t width    = imagedata.dimension(1);
     const uint32_t channels = imagedata.dimension(2);
@@ -409,7 +410,7 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
         /*full=    */ false
     );
     if(!expect_nn)
-        return std::unexpected(-1111);
+        return std::unexpected(INTERPOLATOR_CREATE_FAILED);
     auto nn = expect_nn.value();
 
 
@@ -444,13 +445,20 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
         for(int y = 0; y < height; y++) {
             const auto expect_row = row_slice(imagedata, y);
             if(!expect_row)
-                return std::unexpected(-1113);
+                return std::unexpected(INTERNAL_ERROR_321);
             const auto row = expect_row.value();
+
+            
+            #ifdef __EMSCRIPTEN__
+            // in WASM periodically return control back to JS to allow aborting
+            if(y % 10 == 0)
+                emscripten_sleep(0); 
+            #endif
 
             const auto expect_resized = 
                 nn.push_image_rows(row, {.x=0, .y=y, .w=width, .h=1});
             if(!expect_resized)
-                return std::unexpected(-1112);
+                return std::unexpected(INTERNAL_ERROR_322);
             const EigenRGBAMap resized = expect_resized->slice.eval();
 
             const int stride = resized.dimension(1) * resized.dimension(2);
