@@ -73,6 +73,12 @@ std::expected<Buffer_p, int> png_compress_image(
 
 
 std::expected<Buffer_p, int> resize_image_and_encode_as_png(
-    EigenRGBAMap imagedata,
-    ImageSize dst_size
+    const EigenRGBAMap& imagedata,
+    const ImageSize& dst_size
 );
+
+std::expected<Buffer_p, int> resize_image_and_encode_as_png(
+    const EigenBinaryMap& mask,
+    const ImageSize& dst_size
+);
+

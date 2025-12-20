@@ -48,6 +48,7 @@ int main() {
     RUN_TEST(test_png_compress_binary_image0);
     RUN_TEST(test_png_compress_and_upscale_rgba);
     RUN_TEST(test_png_compress_rgb_image0);
+    RUN_TEST(test_png_compress_and_upscale_binary);
 
     printf("All tests passed.\n");
     return 0;

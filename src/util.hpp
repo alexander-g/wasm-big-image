@@ -34,8 +34,15 @@ struct BoxXYWH {
     uint32_t h;
 };
 
+
+/** shape: [height, width] */
+typedef Eigen::Tensor<bool, 2, Eigen::RowMajor> EigenBinaryMap;
+
+/** shape: [height, width, C] */
+typedef Eigen::Tensor<uint8_t, 3, Eigen::RowMajor> EigenImageMap;
+
 /** shape: [height, width, 4] */
-typedef Eigen::Tensor<uint8_t, 3, Eigen::RowMajor> EigenRGBAMap;
+typedef EigenImageMap EigenRGBAMap;
 
 typedef Eigen::TensorSlicingOp<
     const Eigen::array<Eigen::Index, 3>, 
