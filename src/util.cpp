@@ -12,17 +12,17 @@
 NearestNeighborStreamingInterpolator::NearestNeighborStreamingInterpolator(
     const BoxXYWH& crop_box,
     const ImageSize& dst_size,
-    bool full
+    bool  full,
+    int   n_channels
 ) :
     output_buffer(
         /*height*/   full? (int)(dst_size.height) : 0,
         /*width*/          (int)(dst_size.width), 
-        /*channels*/        4
+        /*channels*/        n_channels
     ),
     crop_box(crop_box),
     dst_size(dst_size),
-    full(full),
-    _last_row(-1)
+    full(full)
 {
     output_buffer.setZero();
 }
@@ -31,7 +31,8 @@ std::expected<NearestNeighborStreamingInterpolator, int>
 NearestNeighborStreamingInterpolator::create(
     const BoxXYWH& crop_box,
     const ImageSize& dst_size,
-    bool full
+    bool full,
+    int  n_channels
 ) {
     if (dst_size.width == 0 || dst_size.height == 0)
         return std::unexpected(INVALID_SIZES);
@@ -42,7 +43,12 @@ NearestNeighborStreamingInterpolator::create(
     
 
     try {
-        return NearestNeighborStreamingInterpolator(crop_box, dst_size, full);
+        return NearestNeighborStreamingInterpolator(
+            crop_box, 
+            dst_size, 
+            full, 
+            n_channels
+        );
     } catch (const std::bad_alloc&) {
         return std::unexpected<int>(MALLOC_FAILED);
     } catch (...) {
@@ -58,12 +64,13 @@ NearestNeighborStreamingInterpolator::push_image_rows(
     const BoxXYWH& src_box
 ) {
     //printf("TODO: src_box could be just an offset, h+w already in src.dimensions()\n");
-    //printf("TODO: remove exceptions\n");
-    if(src.dimension(2) != 4)
+    
+    const int n_channels = src.dimension(2);
+    if(n_channels != this->output_buffer.dimension(2))
         return std::unexpected(INVALID_SRC_BOX.c_str());
 
 
-    //printf("TODO: compute scale in the constructor\n");
+    //printf("TODO: compute scale in the constructor\n"); // but not if dims change?
     const double scale_x = (double)(this->dst_size.width) / (double)(crop_box.w);
     const double scale_y = (double)(this->dst_size.height) / (double)(crop_box.h);
 
@@ -108,7 +115,7 @@ NearestNeighborStreamingInterpolator::push_image_rows(
 
         if(this->output_buffer.dimension(0) < dst_h
         || this->output_buffer.dimension(1) < dst_w)
-            this->output_buffer = EigenRGBAMap(dst_h, dst_w, 4);
+            this->output_buffer = EigenRGBAMap(dst_h, dst_w, n_channels);
         this->output_buffer.setConstant(0x77);
     }
 
@@ -142,18 +149,19 @@ NearestNeighborStreamingInterpolator::push_image_rows(
             // index inside src chunk
             const int32_t src_j = std::max(nearest_src_x - src_box.x, 0);
 
-            this->output_buffer(dst_y, dst_x, 0) = src(src_i, src_j, 0);
-            this->output_buffer(dst_y, dst_x, 1) = src(src_i, src_j, 1);
-            this->output_buffer(dst_y, dst_x, 2) = src(src_i, src_j, 2);
-            this->output_buffer(dst_y, dst_x, 3) = src(src_i, src_j, 3);
+            const Eigen::array<Eigen::Index, 3> offsets_dst = {dst_y, dst_x, 0};
+            const Eigen::array<Eigen::Index, 3> offsets_src = {src_i, src_j, 0};
+            const Eigen::array<Eigen::Index, 3> extents = {1, 1, n_channels};
 
+            this->output_buffer.slice(offsets_dst, extents) = 
+                src.slice(offsets_src, extents);
         }
     }
 
 
     //printf("TODO: check slicing dimensions:  %i %i - %i %i \n", dst_y0, dst_y1,   dst_x0, dst_x1);
     const Eigen::array<Eigen::Index, 3> offsets = {dst_y0, dst_x0, 0};
-    const Eigen::array<Eigen::Index, 3> extents = {dst_h,  dst_w,  4};
+    const Eigen::array<Eigen::Index, 3> extents = {dst_h,  dst_w,  n_channels};
     return EigenRGBACrop{
         .slice = this->output_buffer.slice(offsets, extents),
         .coordinates = {
@@ -224,8 +232,8 @@ expected_s<EigenRGBAConstSlice> row_slice(const EigenRGBAMap& t, Eigen::Index i)
     if(i < 0 || i >= D0)
         return std::unexpected(ROW_SLICE_INVALID_INDEX.c_str());
 
-    Eigen::array<Eigen::Index, 3> offsets = { i, 0, 0 };
-    Eigen::array<Eigen::Index, 3> extents = { 1, D1, D2 };
+    const Eigen::array<Eigen::Index, 3> offsets = { i, 0, 0 };
+    const Eigen::array<Eigen::Index, 3> extents = { 1, D1, D2 };
     return t.slice(offsets, extents);
 }
 

@@ -9,12 +9,14 @@ int test_nn_interpolation_full() {
     const auto expect_nn = NearestNeighborStreamingInterpolator::create(
         /*crop_box=*/ {.x=20, .y=10, .w=10, .h=30},
         /*dst_size=*/ {.width=20, .height=60}, 
-        /*full=*/ true
+        /*full=*/     true,
+        /*n_channels=*/4
     );
     assert(expect_nn.has_value());
     auto nn = expect_nn.value();
 
 
+    // must match the initially specified number of channels
     const EigenRGBAMap not_rgba(5, 100, 2);
     const auto expect_error0 = nn.push_image_rows(not_rgba, {0,0, 100, 5});
     assert(!expect_error0.has_value());
@@ -64,7 +66,8 @@ int test_nn_interpolation_streaming_only() {
     const auto expect_nn = NearestNeighborStreamingInterpolator::create(
         /*crop_box=*/ {.x=20, .y=10, .w=10, .h=30},
         /*dst_size=*/ {.width=20, .height=60}, 
-        /*full=    */ false
+        /*full=    */ false,
+        /*n_channels=*/4
     );
     assert(expect_nn.has_value());
     auto nn = expect_nn.value();
@@ -117,7 +120,8 @@ int test_nn_interpolation_single_row_upscaling() {
     const auto expect_nn = NearestNeighborStreamingInterpolator::create(
         /*crop_box=*/ {.x=0, .y=0, .w=w, .h=h},
         /*dst_size=*/ {.width=dst_W, .height=dst_H}, 
-        /*full=    */ false
+        /*full=    */ false,
+        /*n_channels=*/4
     );
     assert(expect_nn.has_value());
     auto nn = expect_nn.value();

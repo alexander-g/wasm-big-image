@@ -73,6 +73,6 @@ std::expected<Buffer_p, int> png_compress_image(
 
 
 std::expected<Buffer_p, int> resize_image_and_encode_as_png(
-    Eigen::Tensor<uint8_t, 3, Eigen::RowMajor> imagedata,
+    EigenRGBAMap imagedata,
     ImageSize dst_size
 );

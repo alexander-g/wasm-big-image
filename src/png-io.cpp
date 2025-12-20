@@ -398,7 +398,7 @@ std::expected<Buffer_p, int> png_compress_image(
 
 
 std::expected<Buffer_p, int> resize_image_and_encode_as_png(
-    Eigen::Tensor<uint8_t, 3, Eigen::RowMajor> imagedata,
+    EigenRGBAMap imagedata,
     ImageSize dst_size
 ) {
     const uint32_t height   = imagedata.dimension(0);
@@ -407,7 +407,8 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
     const auto expect_nn = NearestNeighborStreamingInterpolator::create(
         /*crop_box=*/ {.x=0, .y=0, .w=width, .h=height},
         /*dst_size=*/ dst_size, 
-        /*full=    */ false
+        /*full=    */ false,
+        /*n_channels=*/ 4
     );
     if(!expect_nn)
         return std::unexpected(INTERPOLATOR_CREATE_FAILED);
