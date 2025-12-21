@@ -395,24 +395,54 @@ std::expected<Buffer_p, int> png_compress_image(
 
 
 
-
+auto as_binarymap_expr(const EigenImageMap& x) {
+    return (x > 0)
+        .any(Eigen::array<int,1>{2})
+        .reshape(
+            Eigen::array<Eigen::Index,3>{
+                x.dimension(0), 
+                x.dimension(1), 
+                1
+            }
+        )
+        .cast<uint8_t>();
+}
 
 std::expected<Buffer_p, int> resize_image_and_encode_as_png(
-    Eigen::Tensor<uint8_t, 3, Eigen::RowMajor> imagedata,
-    ImageSize dst_size
+    const EigenRGBAMap& imagedata,
+    const ImageSize&    dst_size,
+    bool         as_binary
 ) {
     const uint32_t height   = imagedata.dimension(0);
     const uint32_t width    = imagedata.dimension(1);
-    const uint32_t channels = imagedata.dimension(2);
+    const uint32_t channels = as_binary? 1 : imagedata.dimension(2);
     const auto expect_nn = NearestNeighborStreamingInterpolator::create(
         /*crop_box=*/ {.x=0, .y=0, .w=width, .h=height},
         /*dst_size=*/ dst_size, 
-        /*full=    */ false
+        /*full=    */ false,
+        /*n_channels=*/ channels
     );
     if(!expect_nn)
         return std::unexpected(INTERPOLATOR_CREATE_FAILED);
     auto nn = expect_nn.value();
 
+    //int bit_depth = as_binary? 1 : 8;   // NOTE: always 8 bit for now
+    int png_color_type;
+    if(as_binary)
+        png_color_type = PNG_COLOR_TYPE_GRAY;
+    else if(channels == 1)
+        png_color_type = PNG_COLOR_TYPE_GRAY;
+    else if(channels == 3)
+        png_color_type = PNG_COLOR_TYPE_RGB;
+    else if(channels == 4)
+        png_color_type = PNG_COLOR_TYPE_RGBA;
+    else 
+        return std::unexpected(INVALID_CHANNELS);
+
+    const EigenRGBAMap imagedata_final = 
+        as_binary 
+        ? as_binarymap_expr(std::move(imagedata)) * static_cast<uint8_t>(255)
+        : std::move(imagedata);
 
     try {
         const auto expect_png_handle = PNG_WriteHandle::create();
@@ -421,12 +451,6 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
         
         const std::shared_ptr<PNG_WriteHandle> png_handle = *expect_png_handle;
 
-        std::vector<uint8_t> databuffer;
-        int png_color_type;
-        if(channels == 4)
-            png_color_type = PNG_COLOR_TYPE_RGBA;
-        else 
-            return std::unexpected(INVALID_CHANNELS);
 
         /* IHDR: grayscale, 8-bit depth */
         png_set_IHDR(
@@ -434,7 +458,7 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
             png_handle->info,
             dst_size.width, 
             dst_size.height,
-            /* bit depth = */ 8, 
+            /*bit_depth = */ 8, 
             png_color_type,
             PNG_INTERLACE_NONE,
             PNG_COMPRESSION_TYPE_BASE,
@@ -443,7 +467,7 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
         png_write_info(png_handle->png, png_handle->info);
 
         for(int y = 0; y < height; y++) {
-            const auto expect_row = row_slice(imagedata, y);
+            const auto expect_row = row_slice(imagedata_final, y);
             if(!expect_row)
                 return std::unexpected(INTERNAL_ERROR_321);
             const auto row = expect_row.value();
@@ -481,5 +505,33 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
     } catch (...) {
         return std::unexpected(UNEXPECTED);
     }
+}
+
+// grayscale, rgb, rgba
+std::expected<Buffer_p, int> resize_image_and_encode_as_png(
+    const EigenRGBAMap& imagedata,
+    const ImageSize&    dst_size
+) {
+    return resize_image_and_encode_as_png(imagedata, dst_size, false);
+}
+
+
+// binary
+std::expected<Buffer_p, int> resize_image_and_encode_as_png(
+    const EigenBinaryMap& mask,
+    const ImageSize& dst_size
+) {
+    const auto mask_3d_u8 = 
+        mask
+        .reshape(
+            Eigen::array<Eigen::Index,3>{
+                mask.dimension(0), 
+                mask.dimension(1), 
+                1
+            }
+        )
+        .cast<uint8_t>();
+
+    return resize_image_and_encode_as_png(mask_3d_u8, dst_size, true);
 }
 

@@ -426,3 +426,43 @@ int test_png_upscale(){
     return 0;
 }
 
+
+int test_png_compress_and_upscale_binary() {
+    EigenBinaryMap imagedata(100,50);
+    imagedata.setConstant(0);
+    imagedata(55,35) = true;
+    imagedata(55,36) = true;
+    imagedata(55,37) = true;
+    imagedata(56,35) = true;
+    imagedata(56,36) = true;
+    imagedata(57,35) = true;
+
+    const auto expect_buffer = 
+        resize_image_and_encode_as_png(imagedata, {.width=10002, .height=10001});
+    assert(expect_buffer.has_value());
+    const auto buffer = expect_buffer.value();
+
+    uint8_t readbuffer[1000*1000*4] = {44};
+    int rc = 777;
+    png_read_patch(
+        buffer->size, 
+        (const void*) &memory_read_cb, 
+        (void*) buffer->data, 
+        /*src_x      =*/ 7000,  // 35/50  * 10002
+        /*src_y      =*/ 5500,  // 55/100 * 10001
+        /*src_width  =*/ 3,
+        /*src_height =*/ 3,
+        /*dst_width  =*/ 3,
+        /*dst_height =*/ 3,
+        readbuffer,
+        sizeof(readbuffer),
+        &rc
+    );
+    assert(rc==0);
+    
+    assert( ((uint32_t*)readbuffer)[0]      == 0xff000000 ); // black, full alpha
+    assert( ((uint32_t*)readbuffer)[1+3 +1] == 0xffffffff ); // white
+
+    return 0;
+}
+

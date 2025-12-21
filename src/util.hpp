@@ -34,8 +34,15 @@ struct BoxXYWH {
     uint32_t h;
 };
 
+
+/** shape: [height, width] */
+typedef Eigen::Tensor<bool, 2, Eigen::RowMajor> EigenBinaryMap;
+
+/** shape: [height, width, C] */
+typedef Eigen::Tensor<uint8_t, 3, Eigen::RowMajor> EigenImageMap;
+
 /** shape: [height, width, 4] */
-typedef Eigen::Tensor<uint8_t, 3, Eigen::RowMajor> EigenRGBAMap;
+typedef EigenImageMap EigenRGBAMap;
 
 typedef Eigen::TensorSlicingOp<
     const Eigen::array<Eigen::Index, 3>, 
@@ -72,11 +79,15 @@ struct NearestNeighborStreamingInterpolator {
         final result has size `dst_size`. If not `full`, will not store the full
         result, will only return a crop of the transformed data at a time.
         Returns an error on bad allocation. */
-    static std::expected<NearestNeighborStreamingInterpolator, int> 
-        create(const BoxXYWH& crop_box, const ImageSize& dst_size, bool full);
+    static std::expected<NearestNeighborStreamingInterpolator, int> create(
+        const BoxXYWH&   crop_box, 
+        const ImageSize& dst_size, 
+        bool full, 
+        int  n_channels
+    );
     
     /** Feed new data, which has the coordinates `src_box` within the original 
-        image. Returns a the transformed data (i.e. view of the output buffer).*/
+        image. Returns the transformed data (i.e. view of the output buffer).*/
     const expected_s<EigenRGBACrop>
         push_image_rows(const EigenRGBAMap& src, const BoxXYWH& src_box);
 
@@ -85,10 +96,10 @@ struct NearestNeighborStreamingInterpolator {
     NearestNeighborStreamingInterpolator(
         const BoxXYWH& crop_box,
         const ImageSize& dst_size,
-        bool  full
+        bool  full,
+        int   n_channels
     );
 
-    int32_t _last_row;
 };
 
 
