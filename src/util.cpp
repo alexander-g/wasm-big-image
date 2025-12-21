@@ -149,12 +149,20 @@ NearestNeighborStreamingInterpolator::push_image_rows(
             // index inside src chunk
             const int32_t src_j = std::max(nearest_src_x - src_box.x, 0);
 
-            const Eigen::array<Eigen::Index, 3> offsets_dst = {dst_y, dst_x, 0};
-            const Eigen::array<Eigen::Index, 3> offsets_src = {src_i, src_j, 0};
-            const Eigen::array<Eigen::Index, 3> extents = {1, 1, n_channels};
+            // const Eigen::array<Eigen::Index, 3> offsets_dst = {dst_y, dst_x, 0};
+            // const Eigen::array<Eigen::Index, 3> offsets_src = {src_i, src_j, 0};
+            // const Eigen::array<Eigen::Index, 3> extents = {1, 1, n_channels};
 
-            this->output_buffer.slice(offsets_dst, extents) = 
-                src.slice(offsets_src, extents);
+            // this->output_buffer.slice(offsets_dst, extents) = 
+            //     src.slice(offsets_src, extents);
+
+            // way faster than slice():
+            uint8_t* dst_ptr = this->output_buffer.data()
+                + ( (dst_y * this->output_buffer.dimension(1) + dst_x) * n_channels );
+            const uint8_t* src_ptr = src.data()
+                + ( (src_i * src.dimension(1) + src_j) * n_channels );
+
+            std::memcpy(dst_ptr, src_ptr, (size_t)n_channels);
         }
     }
 
