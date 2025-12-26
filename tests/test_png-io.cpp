@@ -34,21 +34,15 @@ int test_png_0(){
     assert (height == 888);
 
 
-    uint8_t buffer[1000*1000*4];
+    uint8_t buffer[1000*1000*4] = {0};
     rc = 777;
-    png_read_patch(
+    Eigen::TensorMap<EigenRGBAMap> eigenbuffer(buffer, 500, 500, 4);
+    rc = png_read_patch(
         fhandle->size, 
         (const void*) &fhandle->read_callback, 
         (void*) fhandle, 
-        /*src_x      =*/ 50,
-        /*src_y      =*/ 50,
-        /*src_width  =*/ 50,
-        /*src_height =*/ 50,
-        /*dst_width  =*/ 500,
-        /*dst_height =*/ 500,
-        buffer,
-        sizeof(buffer),
-        &rc
+        {.x=50, .y=50, .w=50, .h=50},
+        eigenbuffer
     );
     assert(rc==0);
 
