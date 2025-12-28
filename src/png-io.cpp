@@ -337,10 +337,13 @@ int png_read_patch(
         read_file_callback_p, 
         read_file_handle, 
         [&nn, &y, &outputbuffer, &crop_box](const EigenRGBAMap& row) {
-            const auto expect_crop = nn.push_image_rows(
-                row, 
-                {.x=0, .y=y++, .w=row.dimension(1), .h=row.dimension(0)}
-            );
+            const BoxXYWH rowcoords = {
+                .x = 0, 
+                .y = y++, 
+                .w = (uint32_t)row.dimension(1), 
+                .h = (uint32_t)row.dimension(0)
+            };
+            const auto expect_crop = nn.push_image_rows(row, rowcoords);
             if(!expect_crop)
                 return -1;
             const auto& crop = expect_crop.value();
@@ -348,10 +351,11 @@ int png_read_patch(
             if(crop.coordinates.h == 0)
                 return (int)OK;
 
+            typedef Eigen::Index Index;   //to save space
             const Eigen::array<Eigen::Index, 3> offsets = 
-                {crop.coordinates.y, crop.coordinates.x, 0};
+                {(Index)crop.coordinates.y, (Index)crop.coordinates.x, 0};
             const Eigen::array<Eigen::Index, 3> extents = 
-                {crop.coordinates.h, crop.coordinates.w, 4};
+                {(Index)crop.coordinates.h, (Index)crop.coordinates.w, 4};
             outputbuffer.slice(offsets, extents) = crop.slice;
 
             // crop finished, stop reading png
