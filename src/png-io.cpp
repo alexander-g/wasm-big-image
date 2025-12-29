@@ -293,7 +293,7 @@ int png_read_streaming(
         EigenRGBAMap rowdata(1, rowbytes/4, 4);
         uint8_t* rowptr = rowdata.data();
 
-        for(int i = 0; i < ((int)png_handle->height)-1; i++) {
+        for(int i = 0; i < (int)png_handle->height; i++) {
             png_read_rows(png_handle->png, &rowptr, NULL, 1);
             const int rc = callback(rowdata);
             if(rc != 0)
@@ -336,14 +336,14 @@ int png_read_patch(
         filesize, 
         read_file_callback_p, 
         read_file_handle, 
-        [&nn, &y, &outputbuffer, &crop_box](const EigenRGBAMap& row) {
+        [&nn, &y, &outputbuffer, &crop_box](const EigenRGBAMap& rows) {
             const BoxXYWH rowcoords = {
                 .x = 0, 
                 .y = y++, 
-                .w = (uint32_t)row.dimension(1), 
-                .h = (uint32_t)row.dimension(0)
+                .w = (uint32_t)rows.dimension(1), 
+                .h = (uint32_t)rows.dimension(0)
             };
-            const auto expect_crop = nn.push_image_rows(row, rowcoords);
+            const auto expect_crop = nn.push_image_rows(rows, rowcoords);
             if(!expect_crop)
                 return -1;
             const auto& crop = expect_crop.value();

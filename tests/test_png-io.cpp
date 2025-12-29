@@ -58,6 +58,19 @@ int test_png_0(){
     assert( (lastpixel & 0x0000ff00) >> 8  == 50   );
     assert( (lastpixel & 0x000000ff) >> 0  == 230  );
 
+
+    // bug: last image row not read
+    eigenbuffer.setConstant(0x7);
+    rc = png_read_patch(
+        fhandle->size, 
+        (const void*) &fhandle->read_callback, 
+        (void*) fhandle, 
+        {.x=50, .y=50, .w=50, .h=(height-50)},
+        eigenbuffer
+    );
+    assert(rc==0);
+    assert( eigenbuffer(499,499, 0) != 0x7 );
+
     return 0;
 }
 
