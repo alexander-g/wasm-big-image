@@ -12,6 +12,7 @@ enum Error_PNG_IO {
     //OK = 0,
 
     PNG_INIT_LIB_FAILED      = -301, 
+    PNG_INVALID_ROWBYTES     = -302,
     PNG_ENCODING_ABORTED     = -320,
     INTERNAL_ERROR_321       = -321,
     INTERNAL_ERROR_322       = -322,
@@ -60,6 +61,21 @@ int png_read_patch(
 } // extern "C"
 
 
+
+[[nodiscard]] int png_read_streaming(
+    size_t      filesize,
+    const void* read_file_callback_p,
+    const void* read_file_handle,
+    std::function<int(const EigenRGBAMap&)> callback
+);
+
+[[nodiscard]] int png_read_patch(
+    size_t      filesize,
+    const void* read_file_callback_p,
+    const void* read_file_handle,
+    const BoxXYWH&   crop_box,
+    Eigen::TensorMap<EigenRGBAMap>& outputbuffer
+);
 
 
 

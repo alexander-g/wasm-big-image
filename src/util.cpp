@@ -76,13 +76,14 @@ NearestNeighborStreamingInterpolator::push_image_rows(
 
     const int32_t src_y0 = src_box.y;
     const int32_t src_y1 = src_box.y + (int32_t)(src_box.h); // exclusive
+    const int32_t crop_box_y1 = crop_box.y + crop_box.h;
 
     // corresponding dst y range (clamped)
     int32_t dst_y0 = (int32_t)(std::floor((src_y0 - crop_box.y) * scale_y));
     int32_t dst_y1 = (int32_t)(std::floor((src_y1 - crop_box.y) * scale_y));
     if (dst_y0 < 0) 
         dst_y0 = 0;
-    if (dst_y1 > (int32_t)(dst_size.height)) 
+    if (dst_y1 > (int32_t)(dst_size.height) || src_y1 >= crop_box_y1) 
         dst_y1 = (int32_t)(dst_size.height);
     if (dst_y1 < 0)
         dst_y1 = 0;
@@ -90,12 +91,13 @@ NearestNeighborStreamingInterpolator::push_image_rows(
 
     const int32_t src_x0 = src_box.x;
     const int32_t src_x1 = src_box.x + (int32_t)(src_box.w); // exclusive
+    const int32_t crop_box_x1 = crop_box.x + crop_box.w;
     
     int32_t dst_x0 = (int32_t)(std::floor((src_x0 - crop_box.x) * scale_x));
     int32_t dst_x1 = (int32_t)(std::floor((src_x1 - crop_box.x) * scale_x));
     if (dst_x0 < 0) 
         dst_x0 = 0;
-    if (dst_x1 > (int32_t)(dst_size.width)) 
+    if (dst_x1 > (int32_t)(dst_size.width) || src_x1 >= crop_box_x1) 
         dst_x1 = (int32_t)(dst_size.width);
     if (dst_x1 < 0)
         dst_x1 = 0;

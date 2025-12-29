@@ -271,6 +271,104 @@ int png_read_patch(
 }
 
 
+int png_read_streaming(
+    size_t      filesize,
+    const void* read_file_callback_p,
+    const void* read_file_handle,
+    std::function<int(const EigenRGBAMap&)> callback
+) {
+    try{
+        std::expected<std::shared_ptr<PNG_Handle>, int> expect_png_handle = 
+            PNG_Handle::create(filesize, read_file_callback_p, read_file_handle);
+        if(!expect_png_handle)
+            return expect_png_handle.error();
+        std::shared_ptr<PNG_Handle> png_handle = expect_png_handle.value();
+
+
+        const int rowbytes = png_get_rowbytes(png_handle->png, png_handle->info);
+        if(rowbytes % 4 != 0)
+            return PNG_INVALID_ROWBYTES;
+
+
+        EigenRGBAMap rowdata(1, rowbytes/4, 4);
+        uint8_t* rowptr = rowdata.data();
+
+        for(int i = 0; i < (int)png_handle->height; i++) {
+            png_read_rows(png_handle->png, &rowptr, NULL, 1);
+            const int rc = callback(rowdata);
+            if(rc != 0)
+                break;
+        }
+
+    } catch(...) {
+        return UNEXPECTED;
+    }
+
+    return OK;
+}
+
+
+int png_read_patch(
+    size_t      filesize,
+    const void* read_file_callback_p,
+    const void* read_file_handle,
+    const BoxXYWH&   crop_box,
+    Eigen::TensorMap<EigenRGBAMap>& outputbuffer
+) {
+    const uint32_t H = outputbuffer.dimension(0);
+    const uint32_t W = outputbuffer.dimension(1);
+    const uint32_t C = outputbuffer.dimension(2);
+    if(H == 0 || W == 0 || C != 4)
+        return INVALID_SIZES;
+
+    auto expect_nn = NearestNeighborStreamingInterpolator::create(
+        /*crop_box=*/ crop_box,
+        /*dst_size=*/ {.width=W, .height=H}, 
+        /*full=    */ false,
+        /*n_channels=*/ C
+    );
+    if(!expect_nn)
+        return INTERPOLATOR_CREATE_FAILED;
+    auto& nn = expect_nn.value();
+
+    int y = 0;
+    const int rc = png_read_streaming(
+        filesize, 
+        read_file_callback_p, 
+        read_file_handle, 
+        [&nn, &y, &outputbuffer, &crop_box](const EigenRGBAMap& rows) {
+            const BoxXYWH rowcoords = {
+                .x = 0, 
+                .y = y++, 
+                .w = (uint32_t)rows.dimension(1), 
+                .h = (uint32_t)rows.dimension(0)
+            };
+            const auto expect_crop = nn.push_image_rows(rows, rowcoords);
+            if(!expect_crop)
+                return -1;
+            const auto& crop = expect_crop.value();
+
+            if(crop.coordinates.h == 0)
+                return (int)OK;
+
+            typedef Eigen::Index Index;   //to save space
+            const Eigen::array<Eigen::Index, 3> offsets = 
+                {(Index)crop.coordinates.y, (Index)crop.coordinates.x, 0};
+            const Eigen::array<Eigen::Index, 3> extents = 
+                {(Index)crop.coordinates.h, (Index)crop.coordinates.w, 4};
+            outputbuffer.slice(offsets, extents) = crop.slice;
+
+            // crop finished, stop reading png
+            if(y >= crop_box.y + crop_box.h)
+                return 1;
+            
+            return (int)OK;
+        }
+    );
+
+    return rc;
+}
+
 
 
 
