@@ -98,3 +98,28 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
     const ImageSize& dst_size
 );
 
+
+// forward definition
+struct PNG_WriteHandle;
+
+
+/** Encode a PNG image by feeding one row at a time. */
+struct StreamingPNGEncoder {
+    StreamingPNGEncoder(const ImageSize& imagesize, bool as_binary);
+
+    /** Feed a additional rows of the image to encode */
+    [[nodiscard]] std::expected<std::monostate, std::string> 
+    push_image_data(const EigenRGBAMap&);
+    
+    /** Compute the final result */
+    Buffer_p finalize();
+
+
+    private:
+    ImageSize imagesize;
+    bool as_binary;
+    int processed_rows = 0;
+    int channels = -1;
+    std::shared_ptr<PNG_WriteHandle> png_handle;
+};
+
