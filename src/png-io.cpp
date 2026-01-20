@@ -506,15 +506,134 @@ auto as_binarymap_expr(const EigenImageMap& x) {
         .cast<uint8_t>();
 }
 
+
+
+StreamingPNGEncoder::StreamingPNGEncoder(
+    const ImageSize& imagesize, 
+    bool as_binary
+): imagesize(imagesize), as_binary(as_binary) {}
+
+
+
+
+/** Feed a additional rows of the image to encode */
+[[nodiscard]] std::expected<std::monostate, std::string>
+StreamingPNGEncoder::push_image_data(const EigenRGBAMap& imagedata) {
+    const int height   = imagedata.dimension(0);
+    const int width    = imagedata.dimension(1);
+    const int channels = this->as_binary? 1 : imagedata.dimension(2);
+
+    try {
+        if(this->processed_rows == 0) {
+            // init
+            const auto expect_png_handle = PNG_WriteHandle::create();
+            if(!expect_png_handle)
+                return std::unexpected( 
+                    "Could not create PNG_WriteHandle. rc = " 
+                    + std::to_string(expect_png_handle.error())
+                );
+            this->png_handle = expect_png_handle.value();
+            this->channels = channels;
+
+            //int bit_depth = as_binary? 1 : 8;   // NOTE: always 8 bit for now
+            int png_color_type;
+            if(this->as_binary)
+                png_color_type = PNG_COLOR_TYPE_GRAY;
+            else if(channels == 1)
+                png_color_type = PNG_COLOR_TYPE_GRAY;
+            else if(channels == 3)
+                png_color_type = PNG_COLOR_TYPE_RGB;
+            else if(channels == 4)
+                png_color_type = PNG_COLOR_TYPE_RGBA;
+            else 
+                return std::unexpected(
+                    "Invalid number of channels: " + std::to_string(channels)
+                );
+            
+            /* IHDR: grayscale, 8-bit depth */
+            png_set_IHDR(
+                this->png_handle->png, 
+                this->png_handle->info,
+                this->imagesize.width, 
+                this->imagesize.height,
+                /*bit_depth = */ 8, 
+                png_color_type,
+                PNG_INTERLACE_NONE,
+                PNG_COMPRESSION_TYPE_BASE,
+                PNG_FILTER_TYPE_BASE
+            );
+            png_write_info(this->png_handle->png, this->png_handle->info);
+        }
+        // initialized
+        
+        if(channels != this->channels)
+            return std::unexpected(
+                "Imagedata has a different number of channels than before"
+            );
+        if(width != this->imagesize.width)
+            return std::unexpected(
+                "Imagedata has a different width than specified"
+            );
+        
+        const EigenRGBAMap imagedata_final = 
+            as_binary 
+            ? as_binarymap_expr(std::move(imagedata)) * (uint8_t)(255)
+            : std::move(imagedata);
+
+        const int stride = width * channels;
+        for(int y = 0; y < height; y++) {
+            if(this->processed_rows >= this->imagesize.height) 
+                std::unexpected("Received more image rows than specified");
+
+            png_write_row(
+                this->png_handle->png, 
+                (png_const_bytep)imagedata_final.data() + y*stride
+            );
+            this->processed_rows++;
+
+            #ifdef __EMSCRIPTEN__
+            // in WASM periodically return control back to JS to allow aborting
+            if(this->processed_rows % 10 == 0)
+                emscripten_sleep(0); 
+            #endif
+        }
+
+        return std::monostate{};
+    } catch (const std::exception& e) {
+        return std::unexpected( "Unexpected error: " + std::string(e.what()) );
+    }
+    return std::unexpected("Should not get here");
+}
+
+
+Buffer_p StreamingPNGEncoder::finalize() {
+    png_write_end(png_handle->png, png_handle->info);
+
+    // NOTE: access png_handle before std::move below
+    // why did it work previously though ??
+    const auto size = this->png_handle->buffer.size();
+    const auto data = this->png_handle->buffer.data();
+    // custom deleter that owns the handle
+    auto png_deleter = 
+        [handle = std::move(this->png_handle)](Buffer* b) mutable {
+            delete b;
+        };
+    return Buffer_p(
+        new Buffer(data, size), 
+        std::move(png_deleter)
+    );
+}
+
+
 std::expected<Buffer_p, int> resize_image_and_encode_as_png(
     const EigenRGBAMap& imagedata,
     const ImageSize&    dst_size,
-    bool         as_binary
+    bool as_binary
 ) {
     const uint32_t height   = imagedata.dimension(0);
     const uint32_t width    = imagedata.dimension(1);
     const uint32_t channels = as_binary? 1 : imagedata.dimension(2);
-    const auto expect_nn = NearestNeighborStreamingInterpolator::create(
+    auto expect_nn = NearestNeighborStreamingInterpolator::create(
         /*crop_box=*/ {.x=0, .y=0, .w=width, .h=height},
         /*dst_size=*/ dst_size, 
         /*full=    */ false,
@@ -522,88 +641,32 @@ std::expected<Buffer_p, int> resize_image_and_encode_as_png(
     );
     if(!expect_nn)
         return std::unexpected(INTERPOLATOR_CREATE_FAILED);
-    auto nn = expect_nn.value();
+    NearestNeighborStreamingInterpolator& nn = expect_nn.value();
+    
 
-    //int bit_depth = as_binary? 1 : 8;   // NOTE: always 8 bit for now
-    int png_color_type;
-    if(as_binary)
-        png_color_type = PNG_COLOR_TYPE_GRAY;
-    else if(channels == 1)
-        png_color_type = PNG_COLOR_TYPE_GRAY;
-    else if(channels == 3)
-        png_color_type = PNG_COLOR_TYPE_RGB;
-    else if(channels == 4)
-        png_color_type = PNG_COLOR_TYPE_RGBA;
-    else 
-        return std::unexpected(INVALID_CHANNELS);
+    StreamingPNGEncoder spng(dst_size, as_binary);
+    for(int y = 0; y < imagedata.dimension(0); y++) {
+        const auto expect_rows = row_slice(imagedata, y);
+        if(!expect_rows)
+            return std::unexpected(INTERNAL_ERROR_321);
+        const auto& rows = expect_rows.value();
 
-    const EigenRGBAMap imagedata_final = 
-        as_binary 
-        ? as_binarymap_expr(std::move(imagedata)) * static_cast<uint8_t>(255)
-        : std::move(imagedata);
+        const auto expect_resized = 
+            nn.push_image_rows(rows, {.x=0, .y=y, .w=width, .h=1});
+        if(!expect_resized)
+            return std::unexpected(INTERNAL_ERROR_322);
+        const EigenRGBAMap& resized = expect_resized->slice.eval();
 
-    try {
-        const auto expect_png_handle = PNG_WriteHandle::create();
-        if(!expect_png_handle)
-            return std::unexpected(expect_png_handle.error());
-        
-        const std::shared_ptr<PNG_WriteHandle> png_handle = *expect_png_handle;
-
-
-        /* IHDR: grayscale, 8-bit depth */
-        png_set_IHDR(
-            png_handle->png, 
-            png_handle->info,
-            dst_size.width, 
-            dst_size.height,
-            /*bit_depth = */ 8, 
-            png_color_type,
-            PNG_INTERLACE_NONE,
-            PNG_COMPRESSION_TYPE_BASE,
-            PNG_FILTER_TYPE_BASE
-        );
-        png_write_info(png_handle->png, png_handle->info);
-
-        for(int y = 0; y < height; y++) {
-            const auto expect_row = row_slice(imagedata_final, y);
-            if(!expect_row)
-                return std::unexpected(INTERNAL_ERROR_321);
-            const auto row = expect_row.value();
-
-            
-            #ifdef __EMSCRIPTEN__
-            // in WASM periodically return control back to JS to allow aborting
-            if(y % 10 == 0)
-                emscripten_sleep(0); 
-            #endif
-
-            const auto expect_resized = 
-                nn.push_image_rows(row, {.x=0, .y=y, .w=width, .h=1});
-            if(!expect_resized)
-                return std::unexpected(INTERNAL_ERROR_322);
-            const EigenRGBAMap resized = expect_resized->slice.eval();
-
-            const int stride = resized.dimension(1) * resized.dimension(2);
-            for(int i = 0; i < resized.dimension(0); i++)
-                png_write_row(
-                    png_handle->png, 
-                    (png_const_bytep)resized.data() + i*stride
-                );
+        const auto expect_ok = spng.push_image_data( resized );
+        if(!expect_ok) {
+            printf(expect_ok.error().c_str());
+            return std::unexpected(UNEXPECTED);
         }
-        png_write_end(png_handle->png, png_handle->info);
-
-        // custom deleter that owns the handle
-        auto png_deleter = [handle = std::move(png_handle)](Buffer* b) mutable {
-            delete b;
-        };
-        return Buffer_p(
-            new Buffer{ png_handle->buffer.data(), png_handle->buffer.size() }, 
-            std::move(png_deleter)
-        );
-    } catch (...) {
-        return std::unexpected(UNEXPECTED);
     }
+    return spng.finalize();
 }
+
+
 
 // grayscale, rgb, rgba
 std::expected<Buffer_p, int> resize_image_and_encode_as_png(
