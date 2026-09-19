@@ -14,6 +14,10 @@
 
 extern "C" {
 
+
+static bool should_try_next_format_after_jpeg(const int rc);
+static bool should_try_next_format_after_tiff(const int rc);
+
 int image_get_size(
     uint32_t    filesize,
     const void* read_file_callback_p,
@@ -105,6 +109,10 @@ int image_read_patch(
     );
     if(rc == OK)
         return OK;
+    if(!should_try_next_format_after_jpeg(rc)) {
+        if(returncode != NULL) *returncode = rc;
+        return rc;
+    }
     
     rc = tiff_read_patch(
         filesize, 
@@ -122,6 +130,10 @@ int image_read_patch(
     );
     if(rc == OK)
         return OK;
+    if(!should_try_next_format_after_tiff(rc)) {
+        if(returncode != NULL) *returncode = rc;
+        return rc;
+    }
 
     rc = png_read_patch(
         filesize, 
@@ -223,6 +235,15 @@ int free_output_buffer(uint8_t* buffer_p) {
         printf("WARNING: tried to free non-existing output buffer %p\n", buffer_p);
         return 1;
     }
+}
+
+
+static bool should_try_next_format_after_jpeg(const int rc) {
+    return rc == JPEG_READ_HEADER_FAILED;
+}
+
+static bool should_try_next_format_after_tiff(const int rc) {
+    return rc == TIFF_OPEN_FAILED;
 }
 
 

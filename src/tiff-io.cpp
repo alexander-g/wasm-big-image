@@ -1,4 +1,5 @@
 #include <cmath>
+#include <cstdarg>
 #include <expected>
 #include <memory>
 #include <cstdlib>
@@ -11,6 +12,29 @@ extern "C" {
 #include "./util.h"
 }
 
+
+
+static bool should_suppress_tiff_probe_message(const char* message) {
+    if(message == NULL)
+        return false;
+
+    return strstr(message, "Not a TIFF or MDI file, bad magic number") !=
+        NULL;
+}
+
+static void tiff_error_handler(
+    const char* module,
+    const char* format,
+    va_list arguments
+) {
+    if(should_suppress_tiff_probe_message(format))
+        return;
+
+    if(module != NULL)
+        fprintf(stderr, "%s: ", module);
+    vfprintf(stderr, format, arguments);
+    fprintf(stderr, "\n");
+}
 
 
 int tiff_read(
@@ -447,6 +471,11 @@ std::expected<std::shared_ptr<TIFF_Handle>, int> TIFF_Handle::create(
     const read_file_callback_ptr_t read_file_callback_p,
     const void* read_file_handle
 ) {
+    TIFFErrorHandler previous_error_handler =
+        TIFFSetErrorHandler(tiff_error_handler);
+    TIFFErrorHandler previous_warning_handler =
+        TIFFSetWarningHandler(tiff_error_handler);
+
     const auto cb_handle_sp = std::make_shared<struct cb_handle>(
         (struct cb_handle){
             .size   = filesize,
@@ -468,6 +497,8 @@ std::expected<std::shared_ptr<TIFF_Handle>, int> TIFF_Handle::create(
         /* mapproc    = */ NULL, 
         /* unmapproc  = */ NULL
     );
+    TIFFSetErrorHandler(previous_error_handler);
+    TIFFSetWarningHandler(previous_warning_handler);
     if(tif == NULL)
         return std::unexpected(TIFF_OPEN_FAILED);
 

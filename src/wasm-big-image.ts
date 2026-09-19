@@ -183,8 +183,8 @@ export class BigImage implements IBigImage  {
         delete this.#read_file_callback_table[handle];
 
         if(rc != 0)
-            return new Error(`Reading tiff file failed. rc = ${rc}`)
-        return {data:rgba, width:src_width, height:src_height};
+            return new Error(`Reading file failed. rc = ${rc}`)
+        return {data:rgba, width:dst_width, height:dst_height};
     }
 
     async image_read_patch_and_encode(
@@ -232,7 +232,7 @@ export class BigImage implements IBigImage  {
             
             rc = (rc == 0)? this.wasm.HEAP32[rc_ptr >> 2]! : rc;
             if(rc != 0)
-                return new Error(`Reading tiff file failed. rc = ${rc}`)
+                return new Error(`Reading file failed. rc = ${rc}`)
             
             output_buffer_p = this.wasm.HEAP32[output_buffer_pp >> 2]!;
             const output_size:number = Number(this.wasm.HEAP64[output_size_p >> 3]);

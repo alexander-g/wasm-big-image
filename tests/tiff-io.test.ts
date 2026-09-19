@@ -45,9 +45,11 @@ Deno.test("image_read_patch", async () => {
     asserts.assertEquals(image3.data.length, 5*5*4);
 
     const image4: Error|Image = 
-        await module.image_read_patch(tiffile, 50,140,25,25, 99, 99);
+        await module.image_read_patch(tiffile, 50,140,25,25, 98, 99);
     asserts.assertNotInstanceOf(image4, Error)
-    asserts.assertEquals(image4.data.length, 99*99*4);
+    asserts.assertEquals(image4.data.length, 98*99*4);
+    asserts.assertEquals(image4.width, 98)
+    asserts.assertEquals(image4.height, 99)
 })
 
 
@@ -61,4 +63,29 @@ Deno.test("image_read_patch_and_encode", async() => {
     
     asserts.assertNotInstanceOf(image, Error)
 })
+
+
+
+
+const IMAGEPATH_JPEG = "tests/assets/jpeg0.jpg";
+
+Deno.test('image_read_patch: jpeg', async () => {
+    const imagefile = new File([Deno.readFileSync(IMAGEPATH_JPEG)], 'file.jpg')
+    const module:BigImage|Error = await initialize()
+    const image: Error|Image = 
+        await module.image_read_patch(imagefile, 0,0,400,400, 250, 250);
+    asserts.assertNotInstanceOf(image, Error)
+})
+
+
+const IMAGEPATH_PNG = "tests/assets/png0.png";
+
+Deno.test('image_read_patch: png', async () => {
+    const imagefile = new File([Deno.readFileSync(IMAGEPATH_PNG)], 'file.png')
+    const module:BigImage|Error = await initialize()
+    const image: Error|Image = 
+        await module.image_read_patch(imagefile, 0,0,400,400, 250, 250);
+    asserts.assertNotInstanceOf(image, Error)
+})
+
 
