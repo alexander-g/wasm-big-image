@@ -23,7 +23,7 @@ Deno.test("image_get_size", async () => {
 })
 
 
-Deno.test("image_read_patch", async () => {
+Deno.test("image_read_patch: tiff", async (t:Deno.TestContext) => {
     const data_u8:Uint8Array = Deno.readFileSync(TIFF_FILE)
     const tiffile:File = new File([data_u8.buffer as ArrayBuffer], "sheep.tiff")
 
@@ -50,6 +50,24 @@ Deno.test("image_read_patch", async () => {
     asserts.assertEquals(image4.data.length, 98*99*4);
     asserts.assertEquals(image4.width, 98)
     asserts.assertEquals(image4.height, 99)
+
+
+
+    await t.step('patch-larger-than-image', async () => {
+        const image: Error|Image = 
+            await module.image_read_patch(tiffile, 0,0,300,300, 300, 300);
+        asserts.assertNotInstanceOf(image, Error)
+        asserts.assertEquals(image.width, 300)
+        asserts.assertEquals(image.height, 300)
+
+        // og image size: 242x168
+        // should be padded with opaque black (alpha channel doesnt matter)
+        for(let i = 0; i < image.height; i++)
+            for(let j = (i >= 168)? 0 : 242 ; j < image.width; j++)
+                // rgb channels
+                for(let c = 0; c < 3; c++)
+                    asserts.assertEquals(image.data[ i*image.width*4 +  j*4 + c ], 0, `${i}-${j}-${c}`)
+    })
 })
 
 
@@ -66,15 +84,36 @@ Deno.test("image_read_patch_and_encode", async() => {
 
 
 
+// image size: 444x777
+const IMAGEPATH_JPEG = "tests/assets/jpeg1.jpg";
 
-const IMAGEPATH_JPEG = "tests/assets/jpeg0.jpg";
-
-Deno.test('image_read_patch: jpeg', async () => {
+Deno.test('image_read_patch: jpeg', async (t:Deno.TestContext) => {
     const imagefile = new File([Deno.readFileSync(IMAGEPATH_JPEG)], 'file.jpg')
     const module:BigImage|Error = await initialize()
-    const image: Error|Image = 
-        await module.image_read_patch(imagefile, 0,0,400,400, 250, 250);
-    asserts.assertNotInstanceOf(image, Error)
+
+    await t.step('basic',  async () => {
+        const image: Error|Image = 
+            await module.image_read_patch(imagefile, 0,0,400,400, 250, 250);
+        asserts.assertNotInstanceOf(image, Error)
+        asserts.assertEquals(image.width, 250)
+        asserts.assertEquals(image.height, 250)
+    } )
+
+    await t.step('patch-larger-than-image', async () => {
+        const image: Error|Image = 
+            await module.image_read_patch(imagefile, 0,0,800,800, 800, 800);
+        asserts.assertNotInstanceOf(image, Error)
+        asserts.assertEquals(image.width, 800)
+        asserts.assertEquals(image.height, 800)
+
+
+        // should be padded with opaque black (alpha channel doesnt matter)
+        for(let i = 0; i < image.height; i++)
+            for(let j = (i >= 777)? 0 : 444 ; j < image.width; j++)
+                // rgb channels
+                for(let c = 0; c < 3; c++)
+                    asserts.assertEquals(image.data[ i*image.width*4 +  j*4 + c ], 0, `${i}-${j}-${c}`)
+    })
 })
 
 
