@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <expected>
 #include <memory>
 #include <setjmp.h>
@@ -29,6 +30,16 @@ void my_error_exit(j_common_ptr cinfo) {
 
     throw std::runtime_error("Unexpected libjpeg error");
     //longjmp(myerr->setjmp_buffer, 1);
+}
+
+void output_message_filter(j_common_ptr cinfo) {
+    char message[JMSG_LENGTH_MAX];
+    cinfo->err->format_message(cinfo, message);
+
+    if(strncmp(message, "Not a JPEG file:", 16) == 0)
+        return;
+
+    fprintf(stderr, "%s\n", message);
 }
 
 
@@ -97,7 +108,8 @@ void jpeg_srcmgr_term_source(j_decompress_ptr cinfo){
 std::expected<std::shared_ptr<cb_srcmgr_handle>, int> jpeg_via_cb_init(
     size_t      filesize,
     const void* read_file_callback_p,
-    const void* read_file_handle
+    const void* read_file_handle,
+    bool        start_decompress
 ) {
     int rc;
 
@@ -119,6 +131,7 @@ std::expected<std::shared_ptr<cb_srcmgr_handle>, int> jpeg_via_cb_init(
     jpeg_decompress_struct& cinfo = srcmgr->cinfo;
     cinfo.err = jpeg_std_error(&srcmgr->jerr.pub);
     srcmgr->jerr.pub.error_exit = my_error_exit;
+    srcmgr->jerr.pub.output_message = output_message_filter;
 
     jpeg_create_decompress(&cinfo);
 
@@ -132,23 +145,33 @@ std::expected<std::shared_ptr<cb_srcmgr_handle>, int> jpeg_via_cb_init(
     cinfo.src->resync_to_restart = jpeg_resync_to_restart; //default
     cinfo.src->term_source       = jpeg_srcmgr_term_source;
 
-    rc = jpeg_read_header(&cinfo, TRUE);
-    if(rc != 1) 
+    try {
+        rc = jpeg_read_header(&cinfo, TRUE);
+    } catch (...) {
+        return std::unexpected(JPEG_READ_HEADER_FAILED);
+    }
+    if(rc != 1)
         return std::unexpected(JPEG_READ_HEADER_FAILED);
     
 
-    cinfo.scale_num = 1;
-    cinfo.scale_denom = 1;
+    if(start_decompress) {
+        cinfo.scale_num = 1;
+        cinfo.scale_denom = 1;
 
-    cinfo.out_color_space = JCS_EXT_RGBA;
-    cinfo.out_color_components = 4;
+        cinfo.out_color_space = JCS_EXT_RGBA;
+        cinfo.out_color_components = 4;
 
-    rc = jpeg_start_decompress(&cinfo);
-    if(rc != 1) 
-        return std::unexpected(JPEG_START_DECOMPRESS_FAILED);
+        try {
+            rc = jpeg_start_decompress(&cinfo);
+        } catch (...) {
+            return std::unexpected(JPEG_START_DECOMPRESS_FAILED);
+        }
+        if(rc != 1)
+            return std::unexpected(JPEG_START_DECOMPRESS_FAILED);
 
-    if (cinfo.output_components != 4) 
-        return std::unexpected(JPEG_UNSUPPORTED_N_CHANNELS);
+        if (cinfo.output_components != 4) 
+            return std::unexpected(JPEG_UNSUPPORTED_N_CHANNELS);
+    }
 
     return srcmgr;
 }
@@ -197,7 +220,8 @@ int jpeg_read_patch(
     const auto expect_srcmgr_handle = jpeg_via_cb_init(
         filesize,
         read_file_callback_p,
-        read_file_handle
+        read_file_handle,
+        true
     );
     if(!expect_srcmgr_handle) {
         if(returncode != NULL) *returncode = expect_srcmgr_handle.error();
@@ -275,8 +299,11 @@ int jpeg_read_patch(
         );
     }
 
+    jpeg_abort_decompress(&cinfo);
+
     } catch (...) {
-        return UNEXPECTED;
+        if(returncode != NULL) *returncode = JPEG_START_DECOMPRESS_FAILED;
+        return JPEG_START_DECOMPRESS_FAILED;
     }
 
     if(returncode != NULL) *returncode = OK;
@@ -300,7 +327,8 @@ int jpeg_get_size(
         const auto ok = jpeg_via_cb_init(
             filesize,
             read_file_callback_p,
-            read_file_handle
+            read_file_handle,
+            false
         );
         if(ok) {
             *width  = ok->get()->cinfo.image_width;
@@ -308,7 +336,8 @@ int jpeg_get_size(
         }
         rc = ok? OK : ok.error();
     } catch (...) {
-        return UNEXPECTED;
+        if(returncode != NULL) *returncode = JPEG_START_DECOMPRESS_FAILED;
+        return JPEG_START_DECOMPRESS_FAILED;
     }
 
     if(returncode != NULL) *returncode = rc;

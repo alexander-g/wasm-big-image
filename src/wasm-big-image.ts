@@ -103,40 +103,44 @@ export class BigImage implements IBigImage  {
         const handle:number = this.#handle_counter++;
         this.#read_file_callback_table[handle] = file;
 
-        const w_ptr:number = this.wasm._malloc(8);
-        const h_ptr:number = this.wasm._malloc(8);
-        this.wasm.HEAP64[w_ptr >> 3] = 0n;
-        this.wasm.HEAP64[h_ptr >> 3] = 0n;
-        const rc_ptr:pointer = this.wasm._malloc(4)
-        this.wasm.HEAP32[rc_ptr >> 2] = 777;
+        try {
+            const w_ptr:number = this.#malloc(8);
+            const h_ptr:number = this.#malloc(8);
+            this.wasm.HEAP64[w_ptr >> 3] = 0n;
+            this.wasm.HEAP64[h_ptr >> 3] = 0n;
+            const rc_ptr:pointer = this.#malloc(4)
+            this.wasm.HEAP32[rc_ptr >> 2] = 777;
 
-        let rc:number = await this.wasm._image_get_size(
-            file.size, 
-            this.#read_file_callback_ptr, 
-            handle, 
-            w_ptr, 
-            h_ptr, 
-            rc_ptr
-        )
-        // NOTE: the wasm function above returns before the execution is 
-        // finished because of async issues, so currently polling until done
-        while(this.wasm.Asyncify.currData != null)
-            await wait(1);
-        
-        
-        const w:number = Number(this.wasm.HEAP64[w_ptr >> 3])
-        const h:number = Number(this.wasm.HEAP64[h_ptr >> 3])
-        rc = (rc == 0)? this.wasm.HEAP32[rc_ptr >> 2]! : rc;
+            let rc:number = await this.wasm._image_get_size(
+                file.size, 
+                this.#read_file_callback_ptr, 
+                handle, 
+                w_ptr, 
+                h_ptr, 
+                rc_ptr
+            )
+            // NOTE: the wasm function above returns before the execution is 
+            // finished because of async issues, so currently polling until done
+            while(this.wasm.Asyncify.currData != null)
+                await wait(1);
+            
+            
+            const w:number = Number(this.wasm.HEAP64[w_ptr >> 3])
+            const h:number = Number(this.wasm.HEAP64[h_ptr >> 3])
+            rc = (rc == 0)? this.wasm.HEAP32[rc_ptr >> 2]! : rc;
 
-        this.wasm._free(w_ptr);
-        this.wasm._free(h_ptr);
-        this.wasm._free(rc_ptr);
-        delete this.#read_file_callback_table[handle];
+            // TODO: rc is invalid!
+            if(rc != 0)
+                return new Error('Reading image size failed')
+            return {width:w, height:h}
+        } catch (e) {
+            console.error('Unexpected error:', e)
+            return e as Error;
+        } finally {
+            this.#free_allocated_buffers()
+            delete this.#read_file_callback_table[handle];
+        }
         
-        // TODO: rc is invalid!
-        if(rc != 0)
-            return new Error('Reading image size failed')
-        return {width:w, height:h}
     }
 
     async image_read_patch(
@@ -151,40 +155,44 @@ export class BigImage implements IBigImage  {
         const handle:number = this.#handle_counter++;
         this.#read_file_callback_table[handle] = file;
 
-        const nbytes:number = dst_width * dst_height * 4;
-        const buffer:pointer = this.wasm._malloc(nbytes)
-        const rc_ptr:pointer = this.wasm._malloc(4)
-        this.wasm.HEAP32[rc_ptr >> 2] = 777;
-        let rc:number = this.wasm._image_read_patch(
-            file.size, 
-            this.#read_file_callback_ptr, 
-            handle, 
-            src_x,
-            src_y,
-            src_width,
-            src_height,
-            dst_width,
-            dst_height,
-            buffer, 
-            nbytes,
-            rc_ptr
-        )
-        // NOTE: the wasm function above returns before the execution is 
-        // finished because of async issues, so currently polling until done
-        while(this.wasm.Asyncify.currData != null)
-            await wait(1);
+        try {
+            const nbytes:number = dst_width * dst_height * 4;
+            const buffer:pointer = this.#malloc(nbytes, /*fill = */0)
+            const rc_ptr:pointer = this.#malloc(4)
+            this.wasm.HEAP32[rc_ptr >> 2] = 777;
+            let rc:number = this.wasm._image_read_patch(
+                file.size, 
+                this.#read_file_callback_ptr, 
+                handle, 
+                src_x,
+                src_y,
+                src_width,
+                src_height,
+                dst_width,
+                dst_height,
+                buffer, 
+                nbytes,
+                rc_ptr
+            )
+            // NOTE: the wasm function above returns before the execution is 
+            // finished because of async issues, so currently polling until done
+            while(this.wasm.Asyncify.currData != null)
+                await wait(1);
 
-        // copy
-        const rgba:Uint8Array = this.wasm.HEAPU8.slice(buffer, buffer+nbytes)
-        rc = (rc == 0)? this.wasm.HEAP32[rc_ptr >> 2]! : rc;
+            // copy
+            const rgba:Uint8Array = this.wasm.HEAPU8.slice(buffer, buffer+nbytes)
+            rc = (rc == 0)? this.wasm.HEAP32[rc_ptr >> 2]! : rc;
 
-        this.wasm._free(buffer);
-        this.wasm._free(rc_ptr);
-        delete this.#read_file_callback_table[handle];
-
-        if(rc != 0)
-            return new Error(`Reading tiff file failed. rc = ${rc}`)
-        return {data:rgba, width:src_width, height:src_height};
+            if(rc != 0)
+                return new Error(`Reading file failed. rc = ${rc}`)
+            return {data:rgba, width:dst_width, height:dst_height};
+        } catch (e) {
+            console.error('Unexpected error:', e)
+            return e as Error;
+        } finally {
+            this.#free_allocated_buffers()
+            delete this.#read_file_callback_table[handle];
+        }
     }
 
     async image_read_patch_and_encode(
@@ -200,9 +208,9 @@ export class BigImage implements IBigImage  {
         const handle:number = this.#handle_counter++;
         this.#read_file_callback_table[handle] = file;
 
-        const output_buffer_pp:pointer = this.wasm._malloc(4);
-        const output_size_p:pointer = this.wasm._malloc(8);
-        const rc_ptr:pointer = this.wasm._malloc(4)
+        const output_buffer_pp:pointer = this.#malloc(4);
+        const output_size_p:pointer = this.#malloc(8);
+        const rc_ptr:pointer = this.#malloc(4)
         this.wasm.HEAP32[rc_ptr >> 2] = 777;
         
         let output_buffer_p:pointer|undefined;
@@ -232,7 +240,7 @@ export class BigImage implements IBigImage  {
             
             rc = (rc == 0)? this.wasm.HEAP32[rc_ptr >> 2]! : rc;
             if(rc != 0)
-                return new Error(`Reading tiff file failed. rc = ${rc}`)
+                return new Error(`Reading file failed. rc = ${rc}`)
             
             output_buffer_p = this.wasm.HEAP32[output_buffer_pp >> 2]!;
             const output_size:number = Number(this.wasm.HEAP64[output_size_p >> 3]);
@@ -242,12 +250,11 @@ export class BigImage implements IBigImage  {
             // @ts-ignore typescript is annoying
             return new File([encoded_image_data], file.name, {type:file.type});
         } catch(e) {
+            console.error('Unexpected error:', e)
             return e as Error;
         } finally {
-        
-            this.wasm._free(output_buffer_pp);
-            this.wasm._free(output_size_p);
-            this.wasm._free(rc_ptr);
+
+            this.#free_allocated_buffers()
             delete this.#read_file_callback_table[handle];
 
             if(output_buffer_p != undefined) 
@@ -283,6 +290,22 @@ export class BigImage implements IBigImage  {
             this.wasm.HEAPU8.set(slice_u8, dstbuf);
             return 0;
         })
+    }
+
+
+    #allocated_buffers:pointer[] = []
+
+    #malloc(nbytes:number, fill?:number): pointer {
+        const p:pointer = this.wasm._malloc(nbytes);
+        this.wasm.HEAPU8.set(new Uint8Array(nbytes).fill(fill ?? 0), p)
+        this.#allocated_buffers.push(p);
+        return p;
+    }
+
+    #free_allocated_buffers() {
+        for(const buffer_p of this.#allocated_buffers)
+            this.wasm._free(buffer_p);
+        this.#allocated_buffers = []
     }
 }
 
