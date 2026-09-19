@@ -2,8 +2,6 @@ name: CI
 
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -102,8 +100,9 @@ jobs:
 
           git fetch origin wasm-releases
           git checkout wasm-releases
-          cp artifact/wasm-big-image.d.ts ./
-          cp artifact/build-wasm/bundle/wasm-big-image.js ./
+          ls artifact/
+          cp artifact/src/wasm-big-image.d.ts ./
+          cp artifact/bundle/wasm-big-image.js ./
           rm -r artifact
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
