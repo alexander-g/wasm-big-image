@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      release-wasm:
+        type: boolean
+        default: false
 
 
 
@@ -73,5 +77,42 @@ jobs:
             bundle/wasm-big-image.js
             src/wasm-big-image.d.ts
           if-no-files-found: error
+
+
+  release-wasm:
+    needs:   build-wasm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: ${{ github.event.inputs.release-wasm == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: modules
+          path: artifact/
+
+      - name: Release
+        run: |
+          TAGNAME=v$(date +%F)
+          echo $TAGNAME
+
+          git fetch origin wasm-releases
+          git checkout wasm-releases
+          cp artifact/wasm-big-image.d.ts ./
+          cp artifact/build-wasm/bundle/wasm-big-image.js ./
+          rm -r artifact
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ./wasm-big-image.*
+          git commit -m "$TAGNAME"
+          git tag --force $TAGNAME
+          git push origin wasm-releases
+          git push origin --tags
+
+
 
 
