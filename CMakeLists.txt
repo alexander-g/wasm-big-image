@@ -184,7 +184,7 @@ if(RUNNING_EMSCRIPTEN)
         -sSINGLE_FILE=1 
         -sEXPORT_NAME="bigimage" 
         -sEXPORTED_RUNTIME_METHODS=addFunction,Asyncify
-        -sEXPORTED_FUNCTIONS=_image_get_size,_image_read_patch,_image_read_patch_and_encode,_free_output_buffer,_malloc,_free
+        -sEXPORTED_FUNCTIONS=_image_get_size,_image_read_patch,_image_read_patch_and_encode,_resize_image_and_encode_as_png_binary,_free_output_buffer,_malloc,_free
         -sENVIRONMENT=web 
         -sALLOW_TABLE_GROWTH 
         -sALLOW_MEMORY_GROWTH=1
@@ -198,4 +198,3 @@ if(RUNNING_EMSCRIPTEN)
     DEPENDS wasm_big_image
   )
 endif()
-

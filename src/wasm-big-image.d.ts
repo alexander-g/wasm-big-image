@@ -37,9 +37,17 @@ export declare class BigImage {
         dst_width:  number,
         dst_height: number,
     ): Promise<Image|Error> ;
+
+    /** Resize a binary mask and return PNG-encoded bytes. */
+    resize_image_and_encode_as_png_binary(
+        mask_data:   Uint8Array,
+        src_width:   number,
+        src_height:  number,
+        dst_width:   number,
+        dst_height:  number,
+    ): Promise<Uint8Array|Error>;
 }
 
 
 export declare function initialize(): Promise<BigImage>;
-
 

@@ -227,6 +227,54 @@ int image_read_patch_and_encode(
 }
 
 
+/** Resize a binary image and encode it as PNG. */
+int resize_image_and_encode_as_png_binary(
+    const uint8_t* mask_data,
+    uint32_t       src_width,
+    uint32_t       src_height,
+    uint32_t       dst_width,
+    uint32_t       dst_height,
+    // output: encoded data
+    uint8_t**      output_buffer,
+    uint64_t*      output_size,
+    // return code (because of wasm issues)
+    int*           returncode
+) {
+    if(returncode != NULL) *returncode = UNEXPECTED;
+
+    if(
+        mask_data == NULL
+        || src_width == 0
+        || src_height == 0
+        || dst_width == 0
+        || dst_height == 0
+    ) {
+        if(returncode != NULL) *returncode = INVALID_SIZES;
+        return INVALID_SIZES;
+    }
+
+    EigenBinaryMap mask(src_height, src_width);
+    for(size_t i = 0; i < (size_t)src_width * (size_t)src_height; i++)
+        mask.data()[i] = mask_data[i] != 0;
+
+    const std::expected<Buffer_p, int> png_buffer_x =
+        resize_image_and_encode_as_png(mask, {.width=dst_width, .height=dst_height});
+    if(!png_buffer_x) {
+        if(returncode != NULL) *returncode = png_buffer_x.error();
+        return png_buffer_x.error();
+    }
+
+    const Buffer_p png_buffer_p = png_buffer_x.value();
+    _buffers[png_buffer_p->data] = png_buffer_p;
+
+    *output_buffer = png_buffer_p->data;
+    *output_size = png_buffer_p->size;
+
+    if(returncode != NULL) *returncode = OK;
+    return OK;
+}
+
+
 int free_output_buffer(uint8_t* buffer_p) {
     if(_buffers.contains(buffer_p)){
         _buffers.erase(buffer_p);
