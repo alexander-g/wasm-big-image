@@ -55,6 +55,17 @@ type BigImageWASM = {
         returncode:           pointer,
     ) => number,
 
+    _resize_image_and_encode_as_png_binary: (
+        mask_data:      pointer,
+        src_width:      number,
+        src_height:     number,
+        dst_width:      number,
+        dst_height:     number,
+        output_buffer:  pointer,
+        output_size:    pointer,
+        returncode:     pointer,
+    ) => number,
+
     _free_output_buffer: (buffer_p:pointer) => number,
 
 
@@ -263,6 +274,67 @@ export class BigImage implements IBigImage  {
         }
     }
 
+    /** Resize a binary mask and return PNG-encoded bytes. */
+    async resize_image_and_encode_as_png_binary(
+        mask_data:   Uint8Array,
+        src_width:   number,
+        src_height:  number,
+        dst_width:   number,
+        dst_height:  number,
+    ): Promise<Uint8Array|Error> {
+        if(src_width <= 0 || src_height <= 0)
+            return new Error('Invalid source size')
+        if(dst_width <= 0 || dst_height <= 0)
+            return new Error('Invalid destination size')
+        if(mask_data.length !== src_width * src_height)
+            return new Error('Binary mask size mismatch')
+
+        const mask_data_p:pointer = this.#malloc(mask_data.length)
+        this.wasm.HEAPU8.set(mask_data, mask_data_p)
+
+        const output_buffer_pp:pointer = this.#malloc(4)
+        const output_size_p:pointer = this.#malloc(8)
+        const rc_ptr:pointer = this.#malloc(4)
+        this.wasm.HEAP32[rc_ptr >> 2] = 777
+
+        let output_buffer_p:pointer|undefined
+        let rc:number = 777
+        try {
+            rc = this.wasm._resize_image_and_encode_as_png_binary(
+                mask_data_p,
+                src_width,
+                src_height,
+                dst_width,
+                dst_height,
+                output_buffer_pp,
+                output_size_p,
+                rc_ptr,
+            )
+            while(this.wasm.Asyncify.currData != null)
+                await wait(1)
+
+            rc = (rc == 0) ? this.wasm.HEAP32[rc_ptr >> 2]! : rc
+            if(rc != 0)
+                return new Error(
+                    `resize_image_and_encode_as_png_binary failed. rc = ${rc}`
+                )
+
+            output_buffer_p = this.wasm.HEAP32[output_buffer_pp >> 2]!
+            const output_size:number = Number(this.wasm.HEAP64[output_size_p >> 3])
+            const encoded_png:Uint8Array =
+                this.wasm.HEAPU8.slice(output_buffer_p, output_buffer_p + output_size)
+            return encoded_png
+        } catch(e) {
+            console.error('Unexpected error:', e)
+            return e as Error
+        } finally {
+            this.#free_allocated_buffers()
+
+            if(output_buffer_p != undefined)
+                this.wasm._free_output_buffer(output_buffer_p)
+        }
+    }
+
 
 
 
@@ -318,5 +390,3 @@ export const initialize:typeof Iinitialize = async () => {
 
     return new BigImage(wasm);
 }
-
-
